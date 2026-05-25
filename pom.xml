@@ -92,6 +92,20 @@
                         </excludes>
                     </artifactSet>
 
+                    <!-- Exclude the bundled ACF BukkitCommandManager so that the
+                         patched version in src/main/java/co/aikar/commands/ is used
+                         instead. The patched class fixes a NoSuchFieldException on
+                         Paper 1.20.5+ by using Player#getLocale() (Bukkit 1.12+ API)
+                         instead of direct CraftPlayer field reflection. -->
+                    <filters>
+                        <filter>
+                            <artifact>co.aikar:*</artifact>
+                            <excludes>
+                                <exclude>co/aikar/commands/BukkitCommandManager.class</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+
                     <transformers>
                         <!-- Avoid overlapping MANIFEST.MF file -->
                         <transformer implementation="org.apache.maven.plugins.shade.resource.DontIncludeResourceTransformer">
