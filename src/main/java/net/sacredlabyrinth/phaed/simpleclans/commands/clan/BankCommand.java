@@ -79,8 +79,17 @@ public class BankCommand extends BaseCommand {
                 } else {
                     clan.setBalance(operator, REVERT, BankLogger.Operation.WITHDRAW, clan.getBalance() + amount);
                 }
+                break;
             case NOT_ENOUGH_BALANCE:
                 player.sendMessage(lang("clan.bank.not.enough.money", player));
+                break;
+            case CANCELLED:
+                // ClanBalanceUpdateEvent was cancelled by a plugin; balance is unchanged,
+                // so nothing was paid out — inform the player.
+                player.sendMessage(RED + lang("bank.transaction.cancelled", player));
+                break;
+            default:
+                break;
         }
     }
 
@@ -126,15 +135,22 @@ public class BankCommand extends BaseCommand {
             return;
         }
         BankOperator operator = new BankOperator(player, permissions.playerGetMoney(player));
-        EconomyResponse response = clan.deposit(operator, COMMAND, amount);
-        if (response == EconomyResponse.SUCCESS) {
-            if (permissions.chargePlayer(player, amount)) {
-                player.sendMessage(AQUA + lang("player.clan.deposit", player, CurrencyFormat.format(amount)));
-                clan.addBb(player.getName(), lang("bb.clan.deposit", CurrencyFormat.format(amount), player.getName()));
-            } else {
-                //Reverts the deposit if something went wrong with Vault
-                clan.setBalance(operator, REVERT, BankLogger.Operation.DEPOSIT, clan.getBalance() - amount);
-            }
+        switch (clan.deposit(operator, COMMAND, amount)) {
+            case SUCCESS:
+                if (permissions.chargePlayer(player, amount)) {
+                    player.sendMessage(AQUA + lang("player.clan.deposit", player, CurrencyFormat.format(amount)));
+                    clan.addBb(player.getName(), lang("bb.clan.deposit", CurrencyFormat.format(amount), player.getName()));
+                } else {
+                    // Reverts the deposit if something went wrong with Vault
+                    clan.setBalance(operator, REVERT, BankLogger.Operation.DEPOSIT, clan.getBalance() - amount);
+                }
+                break;
+            case CANCELLED:
+                // ClanBalanceUpdateEvent was cancelled by a plugin; balance is unchanged.
+                player.sendMessage(RED + lang("bank.transaction.cancelled", player));
+                break;
+            default:
+                break;
         }
     }
 }

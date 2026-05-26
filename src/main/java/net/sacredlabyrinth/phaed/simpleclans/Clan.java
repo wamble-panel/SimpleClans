@@ -274,7 +274,7 @@ public class Clan implements Serializable, Comparable<Clan> {
         ClanBalanceUpdateEvent event = new ClanBalanceUpdateEvent(operator, this, getBalance(), balance, cause);
         Bukkit.getPluginManager().callEvent(event);
         if (event.isCancelled()) {
-            response = CANCELLED;
+            return CANCELLED;
         }
 
         this.balance = event.getNewBalance();
