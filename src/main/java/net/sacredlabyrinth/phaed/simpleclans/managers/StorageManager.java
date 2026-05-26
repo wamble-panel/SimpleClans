@@ -41,8 +41,10 @@ public final class StorageManager {
     private final SimpleClans plugin;
     private DBCore core;
     private final HashMap<String, ChatBlock> chatBlocks = new HashMap<>();
-    private final Set<Clan> modifiedClans = new HashSet<>();
-    private final Set<ClanPlayer> modifiedClanPlayers = new HashSet<>();
+    // Accessed from both main thread (writes) and async SaveDataTask (reads/clear).
+    // Use a synchronized wrapper so individual operations are thread-safe.
+    private final Set<Clan> modifiedClans = Collections.synchronizedSet(new HashSet<>());
+    private final Set<ClanPlayer> modifiedClanPlayers = Collections.synchronizedSet(new HashSet<>());
 
     /**
      *
@@ -365,67 +367,64 @@ public final class StorageManager {
         List<Clan> out = new ArrayList<>();
 
         String query = "SELECT * FROM `" + getPrefixedTable("clans") + "`;";
-        ResultSet res = core.select(query);
+        try (PreparedStatement pst = core.getConnection().prepareStatement(query);
+             ResultSet res = pst.executeQuery()) {
+            while (res.next()) {
+                try {
+                    boolean verified = res.getBoolean("verified");
+                    boolean friendly_fire = res.getBoolean("friendly_fire");
+                    String tag = res.getString("tag");
+                    String color_tag = ChatUtils.parseColors(res.getString("color_tag"));
+                    String name = res.getString("name");
+                    String description = res.getString("description");
+                    String packed_allies = res.getString("packed_allies");
+                    String packed_rivals = res.getString("packed_rivals");
+                    String packed_bb = res.getString("packed_bb");
+                    String flags = res.getString("flags");
+                    String ranksJson = res.getString("ranks");
+                    long founded = res.getLong("founded");
+                    long last_used = res.getLong("last_used");
+                    double balance = res.getDouble("balance");
+                    double feeValue = res.getDouble("fee_value");
+                    boolean feeEnabled = res.getBoolean("fee_enabled");
+                    ItemStack banner = YAMLSerializer.deserialize(res.getString("banner"), ItemStack.class);
 
-        if (res != null) {
-            try {
-                while (res.next()) {
-                    try {
-                        boolean verified = res.getBoolean("verified");
-                        boolean friendly_fire = res.getBoolean("friendly_fire");
-                        String tag = res.getString("tag");
-                        String color_tag = ChatUtils.parseColors(res.getString("color_tag"));
-                        String name = res.getString("name");
-                        String description = res.getString("description");
-                        String packed_allies = res.getString("packed_allies");
-                        String packed_rivals = res.getString("packed_rivals");
-                        String packed_bb = res.getString("packed_bb");
-                        String flags = res.getString("flags");
-                        String ranksJson = res.getString("ranks");
-                        long founded = res.getLong("founded");
-                        long last_used = res.getLong("last_used");
-                        double balance = res.getDouble("balance");
-                        double feeValue = res.getDouble("fee_value");
-                        boolean feeEnabled = res.getBoolean("fee_enabled");
-                        ItemStack banner = YAMLSerializer.deserialize(res.getString("banner"), ItemStack.class);
-
-                        if (founded == 0) {
-                            founded = (new Date()).getTime();
-                        }
-
-                        if (last_used == 0) {
-                            last_used = (new Date()).getTime();
-                        }
-
-                        Clan clan = new Clan();
-                        clan.setFlags(flags);
-                        clan.setVerified(verified);
-                        clan.setFriendlyFire(friendly_fire);
-                        clan.setTag(tag);
-                        clan.setColorTag(color_tag);
-                        clan.setName(name);
-                        clan.setDescription(description);
-                        clan.setPackedAllies(packed_allies);
-                        clan.setPackedRivals(packed_rivals);
-                        clan.setPackedBb(packed_bb);
-                        clan.setFounded(founded);
-                        clan.setLastUsed(last_used);
-                        clan.setBalance(BankOperator.INTERNAL, ClanBalanceUpdateEvent.Cause.LOADING, BankLogger.Operation.SET, balance);
-                        clan.setMemberFee(feeValue);
-                        clan.setMemberFeeEnabled(feeEnabled);
-                        clan.setRanks(Helper.ranksFromJson(ranksJson));
-                        clan.setDefaultRank(Helper.defaultRankFromJson(ranksJson));
-                        clan.setBanner(banner);
-
-                        out.add(clan);
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
+                    if (founded == 0) {
+                        founded = (new Date()).getTime();
                     }
+
+                    if (last_used == 0) {
+                        last_used = (new Date()).getTime();
+                    }
+
+                    Clan clan = new Clan();
+                    clan.setFlags(flags);
+                    clan.setVerified(verified);
+                    clan.setFriendlyFire(friendly_fire);
+                    clan.setTag(tag);
+                    clan.setColorTag(color_tag);
+                    clan.setName(name);
+                    clan.setDescription(description);
+                    clan.setPackedAllies(packed_allies);
+                    clan.setPackedRivals(packed_rivals);
+                    clan.setPackedBb(packed_bb);
+                    clan.setFounded(founded);
+                    clan.setLastUsed(last_used);
+                    clan.setBalance(BankOperator.INTERNAL, ClanBalanceUpdateEvent.Cause.LOADING, BankLogger.Operation.SET, balance);
+                    clan.setMemberFee(feeValue);
+                    clan.setMemberFeeEnabled(feeEnabled);
+                    clan.setRanks(Helper.ranksFromJson(ranksJson));
+                    clan.setDefaultRank(Helper.defaultRankFromJson(ranksJson));
+                    clan.setBanner(banner);
+
+                    out.add(clan);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
                 }
-            } catch (SQLException ex) {
-                plugin.getLogger().severe(String.format("An Error occurred: %s", ex.getErrorCode()));
-                plugin.getLogger().log(Level.SEVERE, null, ex);
             }
+        } catch (SQLException ex) {
+            plugin.getLogger().severe(String.format("An Error occurred: %s", ex.getErrorCode()));
+            plugin.getLogger().log(Level.SEVERE, null, ex);
         }
 
         return out;
@@ -438,11 +437,10 @@ public final class StorageManager {
     public @Nullable Clan retrieveOneClan(String tagClan) {
         Clan out = null;
 
-        String query = "SELECT * FROM  `" + getPrefixedTable("clans") + "` WHERE `tag` = '" + tagClan + "';";
-        ResultSet res = core.select(query);
-
-        if (res != null) {
-            try {
+        String query = "SELECT * FROM `" + getPrefixedTable("clans") + "` WHERE `tag` = ?;";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(query)) {
+            pst.setString(1, tagClan);
+            try (ResultSet res = pst.executeQuery()) {
                 while (res.next()) {
                     try {
                         boolean verified = res.getBoolean("verified");
@@ -496,10 +494,10 @@ public final class StorageManager {
                         ex.printStackTrace();
                     }
                 }
-            } catch (SQLException ex) {
-                plugin.getLogger().severe(String.format("An Error occurred: %s", ex.getErrorCode()));
-                plugin.getLogger().log(Level.SEVERE, null, ex);
             }
+        } catch (SQLException ex) {
+            plugin.getLogger().severe(String.format("An Error occurred: %s", ex.getErrorCode()));
+            plugin.getLogger().log(Level.SEVERE, null, ex);
         }
 
         return out;
@@ -512,72 +510,69 @@ public final class StorageManager {
     public List<ClanPlayer> retrieveClanPlayers() {
         List<ClanPlayer> out = new ArrayList<>();
 
-        String query = "SELECT * FROM  `" + getPrefixedTable("players") + "`;";
-        ResultSet res = core.select(query);
+        String query = "SELECT * FROM `" + getPrefixedTable("players") + "`;";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(query);
+             ResultSet res = pst.executeQuery()) {
+            while (res.next()) {
+                try {
+                    String uuid = res.getString("uuid");
+                    String name = res.getString("name");
+                    String tag = res.getString("tag");
+                    boolean leader = res.getBoolean("leader");
+                    boolean friendly_fire = res.getBoolean("friendly_fire");
+                    boolean trusted = res.getBoolean("trusted");
+                    int neutral_kills = res.getInt("neutral_kills");
+                    int rival_kills = res.getInt("rival_kills");
+                    int civilian_kills = res.getInt("civilian_kills");
+                    int ally_kills = res.getInt("ally_kills");
+                    int deaths = res.getInt("deaths");
+                    long last_seen = res.getLong("last_seen");
+                    long join_date = res.getLong("join_date");
+                    String flags = res.getString("flags");
+                    String packed_past_clans = ChatUtils.parseColors(res.getString("packed_past_clans"));
+                    String resign_times = res.getString("resign_times");
+                    Locale locale = Helper.forLanguageTag(res.getString("locale"));
 
-        if (res != null) {
-            try {
-                while (res.next()) {
-                    try {
-                        String uuid = res.getString("uuid");
-                        String name = res.getString("name");
-                        String tag = res.getString("tag");
-                        boolean leader = res.getBoolean("leader");
-                        boolean friendly_fire = res.getBoolean("friendly_fire");
-                        boolean trusted = res.getBoolean("trusted");
-                        int neutral_kills = res.getInt("neutral_kills");
-                        int rival_kills = res.getInt("rival_kills");
-                        int civilian_kills = res.getInt("civilian_kills");
-                        int ally_kills = res.getInt("ally_kills");
-                        int deaths = res.getInt("deaths");
-                        long last_seen = res.getLong("last_seen");
-                        long join_date = res.getLong("join_date");
-                        String flags = res.getString("flags");
-                        String packed_past_clans = ChatUtils.parseColors(res.getString("packed_past_clans"));
-                        String resign_times = res.getString("resign_times");
-                        Locale locale = Helper.forLanguageTag(res.getString("locale"));
-
-                        if (last_seen == 0) {
-                            last_seen = (new Date()).getTime();
-                        }
-
-                        ClanPlayer cp = new ClanPlayer();
-                        if (uuid != null) {
-                            cp.setUniqueId(UUID.fromString(uuid));
-                        }
-                        cp.setFlags(flags);
-                        cp.setName(name);
-                        cp.setLeader(leader);
-                        cp.setFriendlyFire(friendly_fire);
-                        cp.setNeutralKills(neutral_kills);
-                        cp.setRivalKills(rival_kills);
-                        cp.setCivilianKills(civilian_kills);
-                        cp.setAllyKills(ally_kills);
-                        cp.setDeaths(deaths);
-                        cp.setLastSeen(last_seen);
-                        cp.setJoinDate(join_date);
-                        cp.setPackedPastClans(packed_past_clans);
-                        cp.setTrusted(leader || trusted);
-                        cp.setResignTimes(Helper.resignTimesFromJson(resign_times));
-                        cp.setLocale(locale);
-
-                        if (!tag.isEmpty()) {
-                            Clan clan = plugin.getClanManager().getClan(tag);
-
-                            if (clan != null) {
-                                cp.setClan(clan);
-                            }
-                        }
-
-                        out.add(cp);
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
+                    if (last_seen == 0) {
+                        last_seen = (new Date()).getTime();
                     }
+
+                    ClanPlayer cp = new ClanPlayer();
+                    if (uuid != null) {
+                        cp.setUniqueId(UUID.fromString(uuid));
+                    }
+                    cp.setFlags(flags);
+                    cp.setName(name);
+                    cp.setLeader(leader);
+                    cp.setFriendlyFire(friendly_fire);
+                    cp.setNeutralKills(neutral_kills);
+                    cp.setRivalKills(rival_kills);
+                    cp.setCivilianKills(civilian_kills);
+                    cp.setAllyKills(ally_kills);
+                    cp.setDeaths(deaths);
+                    cp.setLastSeen(last_seen);
+                    cp.setJoinDate(join_date);
+                    cp.setPackedPastClans(packed_past_clans);
+                    cp.setTrusted(leader || trusted);
+                    cp.setResignTimes(Helper.resignTimesFromJson(resign_times));
+                    cp.setLocale(locale);
+
+                    if (!tag.isEmpty()) {
+                        Clan clan = plugin.getClanManager().getClan(tag);
+
+                        if (clan != null) {
+                            cp.setClan(clan);
+                        }
+                    }
+
+                    out.add(cp);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
                 }
-            } catch (SQLException ex) {
-                plugin.getLogger().severe(String.format("An Error occurred: %s", ex.getErrorCode()));
-                plugin.getLogger().log(Level.SEVERE, null, ex);
             }
+        } catch (SQLException ex) {
+            plugin.getLogger().severe(String.format("An Error occurred: %s", ex.getErrorCode()));
+            plugin.getLogger().log(Level.SEVERE, null, ex);
         }
 
         return out;
@@ -590,11 +585,10 @@ public final class StorageManager {
     public @Nullable ClanPlayer retrieveOneClanPlayer(UUID playerUniqueId) {
         ClanPlayer out = null;
 
-        String query = "SELECT * FROM `" + getPrefixedTable("players") + "` WHERE `uuid` = '" + playerUniqueId.toString() + "';";
-        ResultSet res = core.select(query);
-
-        if (res != null) {
-            try {
+        String query = "SELECT * FROM `" + getPrefixedTable("players") + "` WHERE `uuid` = ?;";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(query)) {
+            pst.setString(1, playerUniqueId.toString());
+            try (ResultSet res = pst.executeQuery()) {
                 while (res.next()) {
                     try {
                         String uuid = res.getString("uuid");
@@ -671,10 +665,10 @@ public final class StorageManager {
                         ex.printStackTrace();
                     }
                 }
-            } catch (SQLException ex) {
-                plugin.getLogger().severe(String.format("An Error occurred: %s", ex.getErrorCode()));
-                plugin.getLogger().log(Level.SEVERE, null, ex);
             }
+        } catch (SQLException ex) {
+            plugin.getLogger().severe(String.format("An Error occurred: %s", ex.getErrorCode()));
+            plugin.getLogger().log(Level.SEVERE, null, ex);
         }
 
         return out;
@@ -687,29 +681,33 @@ public final class StorageManager {
     public void insertClan(Clan clan) {
         plugin.getProxyManager().sendUpdate(clan);
 
-        String query = "INSERT INTO `" + getPrefixedTable("clans") + "` (`banner`, `ranks`, `description`, `fee_enabled`, `fee_value`, `verified`, `tag`," +
+        String sql = "INSERT INTO `" + getPrefixedTable("clans") + "` (`banner`, `ranks`, `description`, `fee_enabled`, `fee_value`, `verified`, `tag`," +
                 " `color_tag`, `name`, `friendly_fire`, `founded`, `last_used`, `packed_allies`, `packed_rivals`, " +
-                "`packed_bb`, `cape_url`, `flags`, `balance`) ";
-        String values = "VALUES ( '"
-                                    + Helper.escapeQuotes(YAMLSerializer.serialize(clan.getBanner())) + "','"
-        							+ Helper.escapeQuotes(Helper.ranksToJson(clan.getRanks(), clan.getDefaultRank())) + "','"
-        							+ Helper.escapeQuotes(clan.getDescription())+ "',"
-        							+ (clan.isMemberFeeEnabled() ? 1 : 0) +","
-        							+ Helper.escapeQuotes(String.valueOf(clan.getMemberFee())) + ","
-        							+ (clan.isVerified() ? 1 : 0) + ",'"
-        							+ Helper.escapeQuotes(clan.getTag()) + "','"
-        							+ Helper.escapeQuotes(clan.getColorTag()) + "','"
-        							+ Helper.escapeQuotes(clan.getName()) + "',"
-        							+ (clan.isFriendlyFire() ? 1 : 0) + ",'"
-        							+ clan.getFounded() + "','"
-        							+ clan.getLastUsed() + "','"
-        							+ Helper.escapeQuotes(clan.getPackedAllies()) + "','"
-        							+ Helper.escapeQuotes(clan.getPackedRivals()) + "','"
-        							+ Helper.escapeQuotes(clan.getPackedBb()) + "','"
-        							+ Helper.escapeQuotes(clan.getCapeUrl()) + "','"
-        							+ Helper.escapeQuotes(clan.getFlags()) + "','"
-        							+ Helper.escapeQuotes(String.valueOf(clan.getBalance())) + "');";
-        core.executeUpdate(query + values);
+                "`packed_bb`, `cape_url`, `flags`, `balance`) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(sql)) {
+            pst.setString(1, YAMLSerializer.serialize(clan.getBanner()));
+            pst.setString(2, Helper.ranksToJson(clan.getRanks(), clan.getDefaultRank()));
+            pst.setString(3, clan.getDescription());
+            pst.setInt(4, clan.isMemberFeeEnabled() ? 1 : 0);
+            pst.setDouble(5, clan.getMemberFee());
+            pst.setInt(6, clan.isVerified() ? 1 : 0);
+            pst.setString(7, clan.getTag());
+            pst.setString(8, clan.getColorTag());
+            pst.setString(9, clan.getName());
+            pst.setInt(10, clan.isFriendlyFire() ? 1 : 0);
+            pst.setLong(11, clan.getFounded());
+            pst.setLong(12, clan.getLastUsed());
+            pst.setString(13, clan.getPackedAllies());
+            pst.setString(14, clan.getPackedRivals());
+            pst.setString(15, clan.getPackedBb());
+            pst.setString(16, clan.getCapeUrl());
+            pst.setString(17, clan.getFlags());
+            pst.setDouble(18, clan.getBalance());
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error inserting clan " + clan.getTag(), ex);
+        }
     }
 
     /**
@@ -746,8 +744,14 @@ public final class StorageManager {
      * @param cp to update
      */
     public void updatePlayerName(final @NotNull ClanPlayer cp) {
-        String query = "UPDATE `" + getPrefixedTable("players") + "` SET `name` = '" + cp.getName() + "' WHERE uuid = '" + cp.getUniqueId() + "';";
-        core.executeUpdate(query);
+        String sql = "UPDATE `" + getPrefixedTable("players") + "` SET `name` = ? WHERE uuid = ?;";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(sql)) {
+            pst.setString(1, cp.getName());
+            pst.setString(2, cp.getUniqueId().toString());
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error updating player name for " + cp.getName(), ex);
+        }
     }
 
     /**
@@ -815,8 +819,13 @@ public final class StorageManager {
      */
     public void deleteClan(Clan clan) {
         plugin.getProxyManager().sendDelete(clan);
-        String query = "DELETE FROM `" + getPrefixedTable("clans") + "` WHERE tag = '" + clan.getTag() + "';";
-        core.executeUpdate(query);
+        String sql = "DELETE FROM `" + getPrefixedTable("clans") + "` WHERE tag = ?;";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(sql)) {
+            pst.setString(1, clan.getTag());
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error deleting clan " + clan.getTag(), ex);
+        }
     }
 
     /**
@@ -826,15 +835,27 @@ public final class StorageManager {
     public void insertClanPlayer(ClanPlayer cp) {
         plugin.getProxyManager().sendUpdate(cp);
 
-        String query = "INSERT INTO `" + getPrefixedTable("players") + "` (`uuid`, `name`, `leader`, `tag`, `friendly_fire`, `neutral_kills`, " +
-                "`rival_kills`, `civilian_kills`, `deaths`, `last_seen`, `join_date`, `packed_past_clans`, `flags`) ";
-        String values = "VALUES ('" + cp.getUniqueId().toString() + "', '" + cp.getName() + "',"
-                + (cp.isLeader() ? 1 : 0) + ",'" + Helper.escapeQuotes(cp.getTag()) + "',"
-                + (cp.isFriendlyFire() ? 1 : 0) + "," + cp.getNeutralKills() + "," + cp.getRivalKills()
-                + "," + cp.getCivilianKills() + "," + cp.getDeaths() + ",'" + cp.getLastSeen() + "',' "
-                + cp.getJoinDate() + "','" + Helper.escapeQuotes(cp.getPackedPastClans()) + "','"
-                + Helper.escapeQuotes(cp.getFlags()) + "');";
-        core.executeUpdate(query + values);
+        String sql = "INSERT INTO `" + getPrefixedTable("players") + "` (`uuid`, `name`, `leader`, `tag`, `friendly_fire`, `neutral_kills`, " +
+                "`rival_kills`, `civilian_kills`, `deaths`, `last_seen`, `join_date`, `packed_past_clans`, `flags`) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(sql)) {
+            pst.setString(1, cp.getUniqueId().toString());
+            pst.setString(2, cp.getName());
+            pst.setInt(3, cp.isLeader() ? 1 : 0);
+            pst.setString(4, cp.getTag());
+            pst.setInt(5, cp.isFriendlyFire() ? 1 : 0);
+            pst.setInt(6, cp.getNeutralKills());
+            pst.setInt(7, cp.getRivalKills());
+            pst.setInt(8, cp.getCivilianKills());
+            pst.setInt(9, cp.getDeaths());
+            pst.setLong(10, cp.getLastSeen());
+            pst.setLong(11, cp.getJoinDate());
+            pst.setString(12, cp.getPackedPastClans());
+            pst.setString(13, cp.getFlags());
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error inserting ClanPlayer " + cp.getName(), ex);
+        }
     }
 
     /**
@@ -906,8 +927,13 @@ public final class StorageManager {
             updateClan(clan, false);
         }
         plugin.getProxyManager().sendDelete(cp);
-        String query = "DELETE FROM `" + getPrefixedTable("players") + "` WHERE uuid = '" + cp.getUniqueId() + "';";
-        core.executeUpdate(query);
+        String sql = "DELETE FROM `" + getPrefixedTable("players") + "` WHERE uuid = ?;";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(sql)) {
+            pst.setString(1, cp.getUniqueId().toString());
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error deleting ClanPlayer " + cp.getName(), ex);
+        }
         deleteKills(cp.getUniqueId());
     }
 
@@ -917,9 +943,20 @@ public final class StorageManager {
      */
     @Deprecated
     public void insertKill(Player attacker, String attackerTag, Player victim, String victimTag, String type) {
-        String query = "INSERT INTO `" + getPrefixedTable("kills") + "` (  `attacker_uuid`, `attacker`, `attacker_tag`, `victim_uuid`, `victim`, `victim_tag`, `kill_type`) ";
-    	String values = "VALUES ( '" + attacker.getUniqueId() + "','" + attacker.getName() + "','" + attackerTag + "','" + victim.getUniqueId() + "','" + victim.getName() + "','" + victimTag + "','" + type + "');";
-    	core.executeUpdate(query + values);
+        String sql = "INSERT INTO `" + getPrefixedTable("kills") + "` (`attacker_uuid`, `attacker`, `attacker_tag`, `victim_uuid`, `victim`, `victim_tag`, `kill_type`) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?);";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(sql)) {
+            pst.setString(1, attacker.getUniqueId().toString());
+            pst.setString(2, attacker.getName());
+            pst.setString(3, attackerTag);
+            pst.setString(4, victim.getUniqueId().toString());
+            pst.setString(5, victim.getName());
+            pst.setString(6, victimTag);
+            pst.setString(7, type);
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error inserting kill record", ex);
+        }
     }
 
     /**
@@ -930,11 +967,21 @@ public final class StorageManager {
      * @param type the kill type
      */
     public void insertKill(@NotNull ClanPlayer attacker, @NotNull ClanPlayer victim, @NotNull String type, @NotNull LocalDateTime time) {
-        String query = "INSERT INTO `" + getPrefixedTable("kills") + "` (  `attacker_uuid`, `attacker`, `attacker_tag`, `victim_uuid`, " +
-                "`victim`, `victim_tag`, `kill_type`, `created_at`) ";
-        String values = "VALUES ( '" + attacker.getUniqueId() + "','" + attacker.getName() + "','" + attacker.getTag()
-                + "','" + victim.getUniqueId() + "','" + victim.getName() + "','" + victim.getTag() + "','" + type + "','" + time + "');";
-        core.executeUpdate(query + values);
+        String sql = "INSERT INTO `" + getPrefixedTable("kills") + "` (`attacker_uuid`, `attacker`, `attacker_tag`, `victim_uuid`, " +
+                "`victim`, `victim_tag`, `kill_type`, `created_at`) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(sql)) {
+            pst.setString(1, attacker.getUniqueId().toString());
+            pst.setString(2, attacker.getName());
+            pst.setString(3, attacker.getTag());
+            pst.setString(4, victim.getUniqueId().toString());
+            pst.setString(5, victim.getName());
+            pst.setString(6, victim.getTag());
+            pst.setString(7, type);
+            pst.setString(8, time.toString());
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error inserting kill record", ex);
+        }
     }
 
     /**
@@ -943,17 +990,32 @@ public final class StorageManager {
      */
     @Deprecated
     public void deleteKills(String playerName) {
-        String query = "DELETE FROM `" + getPrefixedTable("kills") + "` WHERE `attacker` = '" + playerName + "'";
-        core.executeUpdate(query);
+        // Delete all kill records where the player is either the attacker OR the victim to avoid orphans.
+        String sql = "DELETE FROM `" + getPrefixedTable("kills") + "` WHERE `attacker` = ? OR `victim` = ?;";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(sql)) {
+            pst.setString(1, playerName);
+            pst.setString(2, playerName);
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error deleting kills for player " + playerName, ex);
+        }
     }
 
     /**
-     * Delete a player's kill record form the database
+     * Delete a player's kill record from the database
      *
      */
     public void deleteKills(UUID playerUniqueId) {
-        String query = "DELETE FROM `" + getPrefixedTable("kills") + "` WHERE `attacker_uuid` = '" + playerUniqueId + "'";
-        core.executeUpdate(query);
+        // Delete all kill records where the player is either the attacker OR the victim to avoid orphans.
+        String sql = "DELETE FROM `" + getPrefixedTable("kills") + "` WHERE `attacker_uuid` = ? OR `victim_uuid` = ?;";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(sql)) {
+            String id = playerUniqueId.toString();
+            pst.setString(1, id);
+            pst.setString(2, id);
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error deleting kills for UUID " + playerUniqueId, ex);
+        }
     }
 
     /**
@@ -967,11 +1029,10 @@ public final class StorageManager {
     public Map<String, Integer> getKillsPerPlayer(String playerName) {
         HashMap<String, Integer> out = new HashMap<>();
 
-        String query = "SELECT victim, count(victim) AS kills FROM `" + getPrefixedTable("kills") + "` WHERE attacker = '" + playerName + "' GROUP BY victim ORDER BY count(victim) DESC;";
-        ResultSet res = core.select(query);
-
-        if (res != null) {
-            try {
+        String query = "SELECT victim, count(victim) AS kills FROM `" + getPrefixedTable("kills") + "` WHERE attacker = ? GROUP BY victim ORDER BY count(victim) DESC;";
+        try (PreparedStatement pst = core.getConnection().prepareStatement(query)) {
+            pst.setString(1, playerName);
+            try (ResultSet res = pst.executeQuery()) {
                 while (res.next()) {
                     try {
                         String victim = res.getString("victim");
@@ -979,14 +1040,12 @@ public final class StorageManager {
                         out.put(victim, kills);
                     } catch (Exception ex) {
                         plugin.getLogger().info(ex.getMessage());
-
-
                     }
                 }
-            } catch (SQLException ex) {
-                plugin.getLogger().severe(String.format("An Error occurred: %s", ex.getErrorCode()));
-                plugin.getLogger().log(Level.SEVERE, null, ex);
             }
+        } catch (SQLException ex) {
+            plugin.getLogger().severe(String.format("An Error occurred: %s", ex.getErrorCode()));
+            plugin.getLogger().log(Level.SEVERE, null, ex);
         }
 
         return out;
@@ -1001,26 +1060,21 @@ public final class StorageManager {
         HashMap<String, Integer> out = new HashMap<>();
 
         String query = "SELECT attacker, victim, count(victim) AS kills FROM `" + getPrefixedTable("kills") + "` GROUP BY attacker, victim ORDER BY 3 DESC;";
-        ResultSet res = core.select(query);
-
-        if (res != null) {
-            try {
-                while (res.next()) {
-                    try {
-                        String attacker = res.getString("attacker");
-                        String victim = res.getString("victim");
-                        int kills = res.getInt("kills");
-                        out.put(attacker + " " + victim, kills);
-                    } catch (Exception ex) {
-                        plugin.getLogger().info(ex.getMessage());
-
-
-                    }
+        try (PreparedStatement pst = core.getConnection().prepareStatement(query);
+             ResultSet res = pst.executeQuery()) {
+            while (res.next()) {
+                try {
+                    String attacker = res.getString("attacker");
+                    String victim = res.getString("victim");
+                    int kills = res.getInt("kills");
+                    out.put(attacker + " " + victim, kills);
+                } catch (Exception ex) {
+                    plugin.getLogger().info(ex.getMessage());
                 }
-            } catch (SQLException ex) {
-                plugin.getLogger().severe(String.format("An Error occurred: %s", ex.getErrorCode()));
-                plugin.getLogger().log(Level.SEVERE, null, ex);
             }
+        } catch (SQLException ex) {
+            plugin.getLogger().severe(String.format("An Error occurred: %s", ex.getErrorCode()));
+            plugin.getLogger().log(Level.SEVERE, null, ex);
         }
 
         return out;
@@ -1208,14 +1262,21 @@ public final class StorageManager {
     }
 
     private void updatePlayerInDatabase(String playerName, UUID uuid) {
-        String[] tables = {"players", "kills", "kills"};
-        String[] columns = {"uuid", "attacker_uuid", "victim_uuid"};
-        String[] conditions = {"name", "attacker", "victim"};
+        String[][] updates = {
+            {"players", "uuid", "name"},
+            {"kills",   "attacker_uuid", "attacker"},
+            {"kills",   "victim_uuid",   "victim"}
+        };
 
-        for (int i = 0; i < tables.length; i++) {
-            String query = String.format("UPDATE `%s` SET %s = '%s' WHERE %s = '%s';",
-                    getPrefixedTable(tables[i]), columns[i], uuid.toString(), conditions[i], playerName);
-            core.executeUpdate(query);
+        for (String[] row : updates) {
+            String sql = "UPDATE `" + getPrefixedTable(row[0]) + "` SET `" + row[1] + "` = ? WHERE `" + row[2] + "` = ?;";
+            try (PreparedStatement pst = core.getConnection().prepareStatement(sql)) {
+                pst.setString(1, uuid.toString());
+                pst.setString(2, playerName);
+                pst.executeUpdate();
+            } catch (SQLException ex) {
+                plugin.getLogger().log(Level.SEVERE, "Error updating player UUID in database for " + playerName, ex);
+            }
         }
     }
 
@@ -1274,31 +1335,35 @@ public final class StorageManager {
      * </p>
 	 */
 	public void saveModified() {
-        try (PreparedStatement pst = prepareUpdateClanPlayerStatement(core.getConnection())) {
-            //removing purged players
-            modifiedClanPlayers.retainAll(plugin.getClanManager().getAllClanPlayers());
-            for (ClanPlayer cp : modifiedClanPlayers) {
-                setValues(pst, cp);
-                pst.addBatch();
+        // Synchronize the entire retainAll + iteration + clear sequence on each set so the
+        // async SaveDataTask and main-thread writes cannot interleave on a plain HashSet.
+        synchronized (modifiedClanPlayers) {
+            try (PreparedStatement pst = prepareUpdateClanPlayerStatement(core.getConnection())) {
+                //removing purged players
+                modifiedClanPlayers.retainAll(plugin.getClanManager().getAllClanPlayers());
+                for (ClanPlayer cp : modifiedClanPlayers) {
+                    setValues(pst, cp);
+                    pst.addBatch();
+                }
+                pst.executeBatch();
+                modifiedClanPlayers.clear();
+            } catch (SQLException ex) {
+                plugin.getLogger().log(Level.SEVERE, "Error saving modified ClanPlayers:", ex);
             }
-            pst.executeBatch();
-
-            modifiedClanPlayers.clear();
-        } catch (SQLException ex) {
-            plugin.getLogger().log(Level.SEVERE, "Error saving modified ClanPlayers:", ex);
         }
-        try (PreparedStatement pst = prepareUpdateClanStatement(core.getConnection())) {
-            //removing disbanded clans
-            modifiedClans.retainAll(plugin.getClanManager().getClans());
-            for (Clan clan : modifiedClans) {
-                setValues(pst, clan);
-                pst.addBatch();
+        synchronized (modifiedClans) {
+            try (PreparedStatement pst = prepareUpdateClanStatement(core.getConnection())) {
+                //removing disbanded clans
+                modifiedClans.retainAll(plugin.getClanManager().getClans());
+                for (Clan clan : modifiedClans) {
+                    setValues(pst, clan);
+                    pst.addBatch();
+                }
+                pst.executeBatch();
+                modifiedClans.clear();
+            } catch (SQLException ex) {
+                plugin.getLogger().log(Level.SEVERE, "Error saving modified Clans:", ex);
             }
-            pst.executeBatch();
-
-            modifiedClans.clear();
-        } catch (SQLException ex) {
-            plugin.getLogger().log(Level.SEVERE, "Error saving modified Clans:", ex);
         }
     }
 }

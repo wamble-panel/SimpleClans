@@ -8,6 +8,7 @@ import org.jetbrains.annotations.Nullable;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -56,8 +57,8 @@ public interface DBCore {
      * @return true if the statement was executed
      */
     default boolean execute(String query) {
-        try {
-            getConnection().createStatement().execute(query);
+        try (Statement st = getConnection().createStatement()) {
+            st.execute(query);
             return true;
         } catch (SQLException ex) {
             log.log(Level.SEVERE, String.format("Error executing query: %s", query), ex);
@@ -101,8 +102,8 @@ public interface DBCore {
         final Exception exception = new Exception(); // Stores a reference to the caller's stack trace for async tasks
         Runnable executeUpdate = () -> {
             if (getConnection() != null) {
-                try {
-                    getConnection().createStatement().executeUpdate(query);
+                try (Statement st = getConnection().createStatement()) {
+                    st.executeUpdate(query);
                 } catch (SQLException ex) {
                     log.log(Level.SEVERE, String.format("Error executing query: %s", query), ex);
                     if (!Bukkit.isPrimaryThread()) {

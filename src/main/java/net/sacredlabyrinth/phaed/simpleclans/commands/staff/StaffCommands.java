@@ -57,18 +57,21 @@ public class StaffCommands extends BaseCommand {
         Clan newClan = clanInput.getClan();
 
         if (oldCp != null) {
-            Clan oldClan = Objects.requireNonNull(oldCp.getClan());
-
-            if (oldClan.equals(newClan)) {
-                ChatBlock.sendMessage(sender, lang("player.already.in.this.clan", sender));
-                return;
-            }
-            if (!oldClan.isPermanent() && oldClan.isLeader(uuid) && oldClan.getLeaders().size() <= 1) {
-                ChatBlock.sendMessage(sender, RED + lang("you.cannot.move.the.last.leader", sender));
-                return;
-            } else {
-                oldClan.addBb(oldCp.getName(), lang("0.has.resigned", oldCp.getName()));
-                oldClan.removePlayerFromClan(uuid);
+            // getClan() may be null if the player resigned between ACF argument resolution and
+            // handler execution.  Treat a clanless player the same as oldCp == null.
+            Clan oldClan = oldCp.getClan();
+            if (oldClan != null) {
+                if (oldClan.equals(newClan)) {
+                    ChatBlock.sendMessage(sender, lang("player.already.in.this.clan", sender));
+                    return;
+                }
+                if (!oldClan.isPermanent() && oldClan.isLeader(uuid) && oldClan.getLeaders().size() <= 1) {
+                    ChatBlock.sendMessage(sender, RED + lang("you.cannot.move.the.last.leader", sender));
+                    return;
+                } else {
+                    oldClan.addBb(oldCp.getName(), lang("0.has.resigned", oldCp.getName()));
+                    oldClan.removePlayerFromClan(uuid);
+                }
             }
         }
 

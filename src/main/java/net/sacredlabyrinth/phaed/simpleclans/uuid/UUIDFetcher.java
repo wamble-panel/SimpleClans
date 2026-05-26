@@ -138,30 +138,34 @@ public final class UUIDFetcher {
 
     private static @Nullable UUID fetchUUID(@NotNull URL url) throws IOException {
         HttpURLConnection connection = createConnection(url);
-        int responseCode = connection.getResponseCode();
-        if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
-            return null;
+        try {
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
+                return null;
+            }
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                throw new IOException(String.format("Unexpected response code: %d. Response: %s",
+                        responseCode, connection.getResponseMessage()));
+            }
+
+            JsonObject response = gson.fromJson(new InputStreamReader(connection.getInputStream(), UTF_8), JsonObject.class);
+
+            if (!response.has("id")) {
+                return null;
+            }
+
+            JsonElement id = response.get("id");
+            JsonElement status = response.get("status");
+
+            if (id.isJsonNull() ||
+                    (response.has("status") && status.getAsString().equals("ERR"))) {
+                throw new IOException(String.format("Invalid UUID: %s", id));
+            }
+
+            return getUUID(id.getAsString());
+        } finally {
+            connection.disconnect();
         }
-        if (responseCode != HttpURLConnection.HTTP_OK) {
-            throw new IOException(String.format("Unexpected response code: %d. Response: %s",
-                    responseCode, connection.getResponseMessage()));
-        }
-
-        JsonObject response = gson.fromJson(new InputStreamReader(connection.getInputStream(), UTF_8), JsonObject.class);
-
-        if (!response.has("id")) {
-            return null;
-        }
-
-        JsonElement id = response.get("id");
-        JsonElement status = response.get("status");
-
-        if (id.isJsonNull() ||
-                (response.has("status") && status.getAsString().equals("ERR"))) {
-            throw new IOException(String.format("Invalid UUID: %s", id));
-        }
-
-        return getUUID(id.getAsString());
     }
 
     // Callable task for batch processing

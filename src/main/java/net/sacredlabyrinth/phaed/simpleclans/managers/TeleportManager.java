@@ -102,12 +102,15 @@ public final class TeleportManager {
     }
 
     /**
-     * Converts the specified {@link Location} to a safe one, i.e. where there is no risk of suffocation
+     * Converts the specified {@link Location} to a safe one, i.e. where there is no risk of suffocation.
+     * The caller's Location object is never mutated; a new Location is always returned.
      *
      * @param location the Location
      * @return the safe Location
      */
     public @NotNull Location getSafe(@NotNull Location location) {
+        // Work on a clone so the caller's stored location (e.g. clan home) is never modified.
+        location = location.clone();
         int counter = 0;
         while (counter < 256) { //max world height
             counter++;
@@ -192,8 +195,9 @@ public final class TeleportManager {
         Location loc = state.getDestination();
         sendTeleportBlocks(player, loc);
         dropItems(player);
-        loc.clone().add(.5, .5, .5);
-        teleportToHome(player, loc, state.getClanName());
+        // Center the player on the block; getSafe() receives a clone and does not mutate loc.
+        Location destination = loc.clone().add(.5, .5, .5);
+        teleportToHome(player, destination, state.getClanName());
     }
 
     @SuppressWarnings("deprecation")

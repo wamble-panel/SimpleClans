@@ -73,7 +73,9 @@ public class SCPlayerListener extends SCListener {
                 event.setFormat(event.getFormat().replace("tagLabel", ""));
             }
         } else {
-            plugin.getClanManager().updateDisplayName(player);
+            // updateDisplayName calls player.setDisplayName() which must run on the main thread.
+            // AsyncPlayerChatEvent fires off the main thread, so dispatch back.
+            Bukkit.getScheduler().runTask(plugin, () -> plugin.getClanManager().updateDisplayName(player));
         }
     }
 
@@ -120,9 +122,11 @@ public class SCPlayerListener extends SCListener {
         ClanPlayer cp = plugin.getClanManager().getClanPlayer(event.getPlayer());
         if (cp != null) {
             Clan clan = Objects.requireNonNull(cp.getClan());
+            // Capture `clan` in the lambda — do NOT call cp.getClan() again one tick later,
+            // as the clan may have been disbanded between now and then (returns null → NPE).
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (clan.getOnlineMembers().isEmpty()) {
-                    plugin.getProtectionManager().setWarExpirationTime(cp.getClan(),
+                    plugin.getProtectionManager().setWarExpirationTime(clan,
                             settingsManager.getMinutes(WAR_DISCONNECT_EXPIRATION_TIME));
                 }
             });
