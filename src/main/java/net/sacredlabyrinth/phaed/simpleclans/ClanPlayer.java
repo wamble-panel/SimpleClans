@@ -183,8 +183,7 @@ public class ClanPlayer implements Serializable, Comparable<ClanPlayer> {
     public boolean isAlly(Player player) {
         ClanPlayer allycp = SimpleClans.getInstance().getClanManager().getClanPlayer(player);
 
-        if (allycp != null) {
-            //noinspection ConstantConditions
+        if (allycp != null && allycp.getClan() != null) {
             return allycp.getClan().isAlly(tag);
         }
 
@@ -197,8 +196,7 @@ public class ClanPlayer implements Serializable, Comparable<ClanPlayer> {
     public boolean isRival(Player player) {
         ClanPlayer allycp = SimpleClans.getInstance().getClanManager().getClanPlayer(player);
 
-        if (allycp != null) {
-            //noinspection ConstantConditions
+        if (allycp != null && allycp.getClan() != null) {
             return allycp.getClan().isRival(tag);
         }
 

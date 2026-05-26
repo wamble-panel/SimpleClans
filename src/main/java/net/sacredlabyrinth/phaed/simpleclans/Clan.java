@@ -1185,6 +1185,10 @@ public class Clan implements Serializable, Comparable<Clan> {
         double totalLeaders = getLeaders().size() - 1;
         double onlineLeaders = online.size();
 
+        // Guard against division by zero when this is the only leader.
+        if (totalLeaders == 0) {
+            return false;
+        }
 
         return ((onlineLeaders / totalLeaders) * 100) >= minimum;
     }
@@ -1329,12 +1333,10 @@ public class Clan implements Serializable, Comparable<Clan> {
         ChatBlock.sendBlank(player);
         ChatBlock.saySingle(player, lang("bulletin.board.header", getName()));
 
-        List<String> localBb;
+        // Always work on a defensive copy so trimming never mutates the live bb list.
+        List<String> localBb = new ArrayList<>(bb);
         if (maxSize == -1) {
-            localBb = bb;
             maxSize = settings.getInt(BB_SIZE);
-        } else {
-            localBb = new ArrayList<>(bb);
         }
 
         while (localBb.size() > maxSize) {
@@ -1416,6 +1418,8 @@ public class Clan implements Serializable, Comparable<Clan> {
                 }
 
                 cp.setLeader(false);
+                // Persist the cleared membership so members don't rejoin the deleted clan on restart.
+                SimpleClans.getInstance().getStorageManager().updateClanPlayer(cp);
             }
         }
 
@@ -1516,8 +1520,10 @@ public class Clan implements Serializable, Comparable<Clan> {
      * @return the clan list
      */
     public List<Clan> getWarringClans() {
-        return flags.getStringList(WARRING_KEY).stream().map(tag -> SimpleClans.getInstance().getClanManager()
-                .getClan(tag)).collect(Collectors.toList());
+        return flags.getStringList(WARRING_KEY).stream()
+                .map(tag -> SimpleClans.getInstance().getClanManager().getClan(tag))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
     /**

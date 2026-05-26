@@ -45,8 +45,8 @@ public class PvPOnlyInWar extends SCListener {
             return;
         }
 
-        if (plugin.getPermissionsManager().has(victim, "simpleclans.mod.nopvpinwar")) {
-            event.setCancelled(true);
+        // If the attacker has bypass permission, allow the PvP regardless of war status
+        if (plugin.getPermissionsManager().has(attacker, "simpleclans.mod.nopvpinwar")) {
             return;
         }
 

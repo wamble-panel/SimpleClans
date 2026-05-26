@@ -53,14 +53,21 @@ public class FriendlyFire extends SCListener {
                          @Nullable Clan victimClan,
                          @Nullable Clan attackerClan) {
         if (vcp == null || victimClan == null || attackerClan == null) {
-            if (plugin.getSettingsManager().is(SAFE_CIVILIANS)) {
+            // Only protect civilians when at least one combatant is in a clan; two clanless
+            // players fighting each other is not a clan-related combat scenario.
+            boolean attackerHasClan = attackerClan != null;
+            boolean victimHasClan = vcp != null && victimClan != null;
+            if ((attackerHasClan || victimHasClan) && plugin.getSettingsManager().is(SAFE_CIVILIANS)) {
                 ChatBlock.sendMessageKey(attacker, "cannot.attack.civilians");
                 event.setCancelled(true);
             }
             return;
         }
 
-        if (vcp.isFriendlyFire() || victimClan.isFriendlyFire() || plugin.getSettingsManager().is(GLOBAL_FRIENDLY_FIRE)) {
+        ClanPlayer acp = plugin.getClanManager().getClanPlayer(attacker);
+        if (vcp.isFriendlyFire() || victimClan.isFriendlyFire()
+                || (acp != null && acp.isFriendlyFire()) || attackerClan.isFriendlyFire()
+                || plugin.getSettingsManager().is(GLOBAL_FRIENDLY_FIRE)) {
             return;
         }
 

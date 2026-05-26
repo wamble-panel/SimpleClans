@@ -15,6 +15,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.net.InetSocketAddress;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.logging.Level;
 
 import static net.sacredlabyrinth.phaed.simpleclans.SimpleClans.lang;
@@ -30,7 +31,7 @@ public class PlayerDeath extends SCListener {
         super(plugin);
     }
 
-    @EventHandler(priority = EventPriority.LOW)
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onEntityDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
         if (isNPC(victim) || isBlacklistedWorld(victim)) {
@@ -92,8 +93,13 @@ public class PlayerDeath extends SCListener {
         }
         double reward = calculateReward(attacker, victim);
         if (reward != 0) {
-            for (ClanPlayer cp : attackerClan.getOnlineMembers()) {
-                double money = Math.round((reward / attacker.getClan().getOnlineMembers().size()) * 100D) / 100D;
+            // Snapshot the online-member list once so the size can't change to 0 mid-loop,
+            // which would cause a division-by-zero / Infinity payout.
+            List<ClanPlayer> onlineMembers = attackerClan.getOnlineMembers();
+            int memberCount = onlineMembers.size();
+            if (memberCount == 0) return;
+            double money = Math.round((reward / memberCount) * 100D) / 100D;
+            for (ClanPlayer cp : onlineMembers) {
                 Player player = cp.toPlayer();
                 if (player == null) {
                     continue;
@@ -147,18 +153,21 @@ public class PlayerDeath extends SCListener {
 
         if (plugin.getSettingsManager().is(KDR_ENABLE_MAX_KILLS)) {
             plugin.getStorageManager().getKillsPerPlayer(attacker.getName(), data -> {
-                final int max = plugin.getSettingsManager().getInt(KDR_MAX_KILLS_PER_VICTIM);
-                Integer kills = data.get(kill.getVictim().getName());
-                if (kills != null) {
-                    if (kills < max) {
+                // The DB query runs async; dispatch the state mutation back to the main thread.
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    final int max = plugin.getSettingsManager().getInt(KDR_MAX_KILLS_PER_VICTIM);
+                    Integer kills = data.get(kill.getVictim().getName());
+                    if (kills != null) {
+                        if (kills < max) {
+                            saveKill(kill, type);
+                        }
+                    } else {
                         saveKill(kill, type);
                     }
-                } else {
-                    saveKill(kill, type);
-                }
+                });
             });
-    		return;
-    	}
+            return;
+        }
     	saveKill(kill, type);
     }
 

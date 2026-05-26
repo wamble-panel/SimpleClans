@@ -302,6 +302,7 @@ public final class PermissionsManager {
      * @return whether he has the money
      */
     public boolean playerHasMoney(OfflinePlayer player, double money) {
+        if (economy == null) return false;
         return economy.has(player, money);
     }
 
@@ -311,6 +312,7 @@ public final class PermissionsManager {
      * @return the players money
      */
     public double playerGetMoney(OfflinePlayer player) {
+        if (economy == null) return 0;
         return economy.getBalance(player);
     }
 
