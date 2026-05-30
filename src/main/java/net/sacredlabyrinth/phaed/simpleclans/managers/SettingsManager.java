@@ -612,7 +612,17 @@ public final class SettingsManager {
         ALLIANCE_COLOR_NATO("alliance.symbols.nato-color", "&9"),
         ALLIANCE_COLOR_SCO("alliance.symbols.sco-color", "&c"),
         ALLIANCE_SHOW_ON_NAMEPLATE("alliance.symbols.show-on-nameplate", true),
-        ALLIANCE_SHOW_ON_DEATH("alliance.symbols.show-on-death-message", true);
+        ALLIANCE_SHOW_ON_DEATH("alliance.symbols.show-on-death-message", true),
+        ALLIANCE_MEETING_DAY("alliance.meeting-day", "SATURDAY"),
+        ALLIANCE_MEETING_TIME("alliance.meeting-time", "18:00"),
+        ALLIANCE_MEETING_TIMEZONE("alliance.meeting-timezone", "Asia/Dubai"),
+        ALLIANCE_MEETING_DURATION_MINUTES("alliance.meeting-duration-minutes", 60),
+        ALLIANCE_WARNING_LEAD_MINUTES("alliance.warning-lead-minutes", 10),
+        ALLIANCE_PROPOSAL_LOCKOUT_MINUTES("alliance.proposal-lockout-minutes", 30),
+        ALLIANCE_MAX_PROPOSALS_PER_MEETING("alliance.max-proposals-per-meeting", 10),
+        ALLIANCE_QUORUM_PERCENT("alliance.quorum-percent", 50),
+        ALLIANCE_CUSTOM_PROFANITY_FILTER("alliance.custom-proposal.profanity-filter", false),
+        ALLIANCE_CUSTOM_BLACKLIST("alliance.custom-proposal.blacklist");
 
         private final String path;
         private final Object defaultValue;

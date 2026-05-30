@@ -3,7 +3,11 @@ package net.sacredlabyrinth.phaed.simpleclans.managers;
 import net.sacredlabyrinth.phaed.simpleclans.*;
 import net.sacredlabyrinth.phaed.simpleclans.alliance.Alliance;
 import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceManager;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceMeetingManager;
 import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceType;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.MeetingState;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.Proposal;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.ProposalType;
 import net.sacredlabyrinth.phaed.simpleclans.events.ClanBalanceUpdateEvent;
 import net.sacredlabyrinth.phaed.simpleclans.loggers.BankLogger;
 import net.sacredlabyrinth.phaed.simpleclans.loggers.BankOperator;
@@ -1408,6 +1412,57 @@ public final class StorageManager {
                     + " PRIMARY KEY (`alliance_type`,`clan_tag`));";
             core.execute(query);
         }
+        createAllianceMeetingSchema();
+    }
+
+    /**
+     * Creates the meeting/proposal/vote schema and adds the meeting-state columns to
+     * the alliances table (ALTER ADD COLUMN works on both SQLite and MySQL). Called
+     * after the base alliance tables so upgrades from an earlier build are handled.
+     */
+    private void createAllianceMeetingSchema() {
+        if (!core.existsTable(getPrefixedTable("alliance_proposals"))) {
+            plugin.getLogger().info("Creating table: " + getPrefixedTable("alliance_proposals"));
+            String query = "CREATE TABLE IF NOT EXISTS `" + getPrefixedTable("alliance_proposals") + "` ("
+                    + " `id` bigint NOT NULL,"
+                    + " `alliance_type` varchar(10) NOT NULL,"
+                    + " `type` varchar(16) NOT NULL,"
+                    + " `proposer_tag` varchar(25) NOT NULL,"
+                    + " `proposer_name` varchar(64) NOT NULL,"
+                    + " `created_at` bigint NOT NULL,"
+                    + " `target_tag` varchar(25),"
+                    + " `number_value` int NOT NULL DEFAULT 0,"
+                    + " `text` varchar(255),"
+                    + " `status` varchar(16) NOT NULL,"
+                    + " `final_agree` int NOT NULL DEFAULT 0,"
+                    + " `final_disagree` int NOT NULL DEFAULT 0,"
+                    + " PRIMARY KEY (`id`));";
+            core.execute(query);
+        }
+        if (!core.existsTable(getPrefixedTable("alliance_votes"))) {
+            plugin.getLogger().info("Creating table: " + getPrefixedTable("alliance_votes"));
+            String query = "CREATE TABLE IF NOT EXISTS `" + getPrefixedTable("alliance_votes") + "` ("
+                    + " `proposal_id` bigint NOT NULL,"
+                    + " `clan_tag` varchar(25) NOT NULL,"
+                    + " `agree` tinyint(1) NOT NULL,"
+                    + " PRIMARY KEY (`proposal_id`,`clan_tag`));";
+            core.execute(query);
+        }
+        // Meeting-state columns live on the one-row-per-type alliances table.
+        String alliances = getPrefixedTable("alliances");
+        if (core.existsTable(alliances)) {
+            addColumnIfMissing(alliances, "meeting_active", "tinyint(1) NOT NULL DEFAULT 0");
+            addColumnIfMissing(alliances, "meeting_start", "bigint NOT NULL DEFAULT 0");
+            addColumnIfMissing(alliances, "meeting_end", "bigint NOT NULL DEFAULT 0");
+            addColumnIfMissing(alliances, "host_tag", "varchar(25)");
+        }
+    }
+
+    private void addColumnIfMissing(String table, String column, String definition) {
+        if (!core.existsColumn(table, column)) {
+            plugin.getLogger().info("Adding column " + column + " to " + table);
+            core.execute("ALTER TABLE `" + table + "` ADD COLUMN `" + column + "` " + definition + ";");
+        }
     }
 
     /**
@@ -1547,6 +1602,234 @@ public final class StorageManager {
             ins.executeUpdate();
         } catch (SQLException ex) {
             plugin.getLogger().log(Level.SEVERE, "Error saving alliance state", ex);
+        }
+    }
+
+    // ===================================================================================
+    // Alliance meetings, proposals and votes (Phase 2)
+    // ===================================================================================
+
+    /**
+     * Loads meeting state, proposals and votes into the meeting manager. Called once
+     * on startup before the meeting scheduler begins ticking.
+     */
+    public void loadAllianceMeetingData(@NotNull AllianceMeetingManager manager) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+
+        // Meeting state per alliance (columns on the alliances table).
+        String meetingQuery = "SELECT `alliance_type`, `meeting_active`, `meeting_start`, `meeting_end`, `host_tag` FROM `"
+                + getPrefixedTable("alliances") + "`;";
+        try (PreparedStatement pst = connection.prepareStatement(meetingQuery);
+             ResultSet res = pst.executeQuery()) {
+            while (res.next()) {
+                AllianceType type = AllianceType.fromString(res.getString("alliance_type"));
+                if (type == null) {
+                    continue;
+                }
+                MeetingState state = manager.getMeetingState(type);
+                state.setActive(res.getBoolean("meeting_active"));
+                state.setStartTime(res.getLong("meeting_start"));
+                state.setEndTime(res.getLong("meeting_end"));
+                state.setHostTag(res.getString("host_tag"));
+            }
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error loading alliance meeting state", ex);
+        }
+
+        // Proposals.
+        String proposalQuery = "SELECT * FROM `" + getPrefixedTable("alliance_proposals") + "` ORDER BY `id` ASC;";
+        try (PreparedStatement pst = connection.prepareStatement(proposalQuery);
+             ResultSet res = pst.executeQuery()) {
+            while (res.next()) {
+                AllianceType type = AllianceType.fromString(res.getString("alliance_type"));
+                ProposalType ptype = parseProposalType(res.getString("type"));
+                Proposal.Status status = parseStatus(res.getString("status"));
+                if (type == null || ptype == null || status == null) {
+                    continue;
+                }
+                Proposal proposal = new Proposal(res.getInt("id"), type, ptype,
+                        res.getString("proposer_tag"), res.getString("proposer_name"),
+                        res.getLong("created_at"), res.getString("target_tag"),
+                        res.getInt("number_value"), res.getString("text"), status);
+                proposal.setFinalTally(res.getInt("final_agree"), res.getInt("final_disagree"));
+                manager.addLoadedProposal(proposal);
+            }
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error loading alliance proposals", ex);
+        }
+
+        // Votes (attach to already-loaded proposals).
+        String voteQuery = "SELECT `proposal_id`, `clan_tag`, `agree` FROM `" + getPrefixedTable("alliance_votes") + "`;";
+        try (PreparedStatement pst = connection.prepareStatement(voteQuery);
+             ResultSet res = pst.executeQuery()) {
+            while (res.next()) {
+                Proposal proposal = manager.getProposalById(res.getInt("proposal_id"));
+                if (proposal != null) {
+                    proposal.setVote(res.getString("clan_tag"), res.getBoolean("agree"));
+                }
+            }
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error loading alliance votes", ex);
+        }
+    }
+
+    public int getNextProposalId() {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return 1;
+        }
+        String query = "SELECT MAX(`id`) AS max_id FROM `" + getPrefixedTable("alliance_proposals") + "`;";
+        try (PreparedStatement pst = connection.prepareStatement(query);
+             ResultSet res = pst.executeQuery()) {
+            if (res.next()) {
+                int max = res.getInt("max_id");
+                if (!res.wasNull()) {
+                    return max + 1;
+                }
+            }
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error reading proposal id", ex);
+        }
+        return 1;
+    }
+
+    public void insertProposal(@NotNull Proposal proposal) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+        String query = "INSERT INTO `" + getPrefixedTable("alliance_proposals") + "` (`id`, `alliance_type`, `type`,"
+                + " `proposer_tag`, `proposer_name`, `created_at`, `target_tag`, `number_value`, `text`, `status`,"
+                + " `final_agree`, `final_disagree`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+        try (PreparedStatement pst = connection.prepareStatement(query)) {
+            pst.setInt(1, proposal.getId());
+            pst.setString(2, proposal.getAlliance().getId());
+            pst.setString(3, proposal.getType().name());
+            pst.setString(4, proposal.getProposerTag());
+            pst.setString(5, proposal.getProposerName());
+            pst.setLong(6, proposal.getCreatedAt());
+            pst.setString(7, proposal.getTargetTag());
+            pst.setInt(8, proposal.getNumberValue());
+            pst.setString(9, proposal.getText());
+            pst.setString(10, proposal.getStatus().name());
+            pst.setInt(11, proposal.getFinalAgree());
+            pst.setInt(12, proposal.getFinalDisagree());
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error inserting alliance proposal", ex);
+        }
+    }
+
+    public void updateProposal(@NotNull Proposal proposal) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+        String query = "UPDATE `" + getPrefixedTable("alliance_proposals")
+                + "` SET `status` = ?, `final_agree` = ?, `final_disagree` = ? WHERE `id` = ?;";
+        try (PreparedStatement pst = connection.prepareStatement(query)) {
+            pst.setString(1, proposal.getStatus().name());
+            pst.setInt(2, proposal.getFinalAgree());
+            pst.setInt(3, proposal.getFinalDisagree());
+            pst.setInt(4, proposal.getId());
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error updating alliance proposal", ex);
+        }
+    }
+
+    /** Upserts a single clan's vote on a proposal (delete-then-insert for portability). */
+    public void saveVote(int proposalId, @NotNull String clanTag, boolean agree) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+        deleteVote(proposalId, clanTag);
+        String query = "INSERT INTO `" + getPrefixedTable("alliance_votes")
+                + "` (`proposal_id`, `clan_tag`, `agree`) VALUES (?, ?, ?);";
+        try (PreparedStatement pst = connection.prepareStatement(query)) {
+            pst.setInt(1, proposalId);
+            pst.setString(2, clanTag);
+            pst.setBoolean(3, agree);
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error saving alliance vote", ex);
+        }
+    }
+
+    public void deleteVote(int proposalId, @NotNull String clanTag) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+        String query = "DELETE FROM `" + getPrefixedTable("alliance_votes")
+                + "` WHERE `proposal_id` = ? AND `clan_tag` = ?;";
+        try (PreparedStatement pst = connection.prepareStatement(query)) {
+            pst.setInt(1, proposalId);
+            pst.setString(2, clanTag);
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error deleting alliance vote", ex);
+        }
+    }
+
+    public void deleteVotesForProposal(int proposalId) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+        String query = "DELETE FROM `" + getPrefixedTable("alliance_votes") + "` WHERE `proposal_id` = ?;";
+        try (PreparedStatement pst = connection.prepareStatement(query)) {
+            pst.setInt(1, proposalId);
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error deleting alliance votes", ex);
+        }
+    }
+
+    public void saveMeetingState(@NotNull AllianceType type, boolean active, long start, long end, @Nullable String hostTag) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+        String query = "UPDATE `" + getPrefixedTable("alliances")
+                + "` SET `meeting_active` = ?, `meeting_start` = ?, `meeting_end` = ?, `host_tag` = ? WHERE `alliance_type` = ?;";
+        try (PreparedStatement pst = connection.prepareStatement(query)) {
+            pst.setBoolean(1, active);
+            pst.setLong(2, start);
+            pst.setLong(3, end);
+            pst.setString(4, hostTag);
+            pst.setString(5, type.getId());
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error saving meeting state", ex);
+        }
+    }
+
+    @Nullable
+    private ProposalType parseProposalType(@Nullable String name) {
+        if (name == null) {
+            return null;
+        }
+        try {
+            return ProposalType.valueOf(name);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    @Nullable
+    private Proposal.Status parseStatus(@Nullable String name) {
+        if (name == null) {
+            return null;
+        }
+        try {
+            return Proposal.Status.valueOf(name);
+        } catch (IllegalArgumentException ex) {
+            return null;
         }
     }
 }
