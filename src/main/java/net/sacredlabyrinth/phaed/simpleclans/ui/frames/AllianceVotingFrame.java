@@ -11,6 +11,7 @@ import net.sacredlabyrinth.phaed.simpleclans.ui.InventoryDrawer;
 import net.sacredlabyrinth.phaed.simpleclans.ui.SCComponent;
 import net.sacredlabyrinth.phaed.simpleclans.ui.SCComponentImpl;
 import net.sacredlabyrinth.phaed.simpleclans.ui.SCFrame;
+import net.sacredlabyrinth.phaed.simpleclans.utils.Paginator;
 import org.bukkit.ChatColor;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -35,13 +36,22 @@ import static net.sacredlabyrinth.phaed.simpleclans.SimpleClans.lang;
  */
 public class AllianceVotingFrame extends SCFrame {
 
+    // One proposal occupies a full 9-slot row; the top row is reserved for navigation,
+    // leaving 5 rows (5 proposals) per page. Pagination handles any proposal count so
+    // nothing is ever silently hidden (max-proposals-per-meeting can exceed 5).
+    private static final int PROPOSALS_PER_PAGE = 5;
+
     private final AllianceType type;
     private final AllianceMeetingManager manager;
+    private final List<Proposal> proposals;
+    private final Paginator paginator;
 
     public AllianceVotingFrame(@Nullable SCFrame parent, Player viewer, AllianceType type) {
         super(parent, viewer);
         this.type = type;
         this.manager = SimpleClans.getInstance().getAllianceMeetingManager();
+        this.proposals = manager.getMeetingProposals(type);
+        this.paginator = new Paginator(PROPOSALS_PER_PAGE, proposals.size());
     }
 
     @Override
@@ -58,15 +68,36 @@ public class AllianceVotingFrame extends SCFrame {
 
     @Override
     public void createComponents() {
-        List<Proposal> list = manager.getMeetingProposals(type);
+        // Top row: navigation (back + page controls). The frame is usually opened with no
+        // parent (straight from a command), so only show Back when there is somewhere to go.
+        for (int slot = 0; slot < 9; slot++) {
+            if (slot == 7 || slot == 8 || (slot == 0 && getParent() != null)) {
+                continue;
+            }
+            add(Components.getPanelComponent(slot));
+        }
+        if (getParent() != null) {
+            add(Components.getBackComponent(getParent(), 0, getViewer()));
+        }
+        add(Components.getPreviousPageComponent(7, this::previousPage, paginator, getViewer()));
+        add(Components.getNextPageComponent(8, this::nextPage, paginator, getViewer()));
+
+        if (proposals.isEmpty()) {
+            add(new SCComponentImpl.Builder(XMaterial.BARRIER)
+                    .withDisplayName(ChatColor.GRAY + lang("alliance.gui.vote.none", getViewer()))
+                    .withSlot(22)
+                    .build());
+            return;
+        }
+
         Clan clan = SimpleClans.getInstance().getClanManager().getClanByPlayerUniqueId(getViewer().getUniqueId());
         String clanTag = clan != null ? clan.getTag() : null;
 
-        int rows = getSize() / 9;
-        int shown = Math.min(list.size(), rows);
-        for (int i = 0; i < shown; i++) {
-            Proposal proposal = list.get(i);
-            int base = i * 9;
+        int row = 1;
+        for (int i = paginator.getMinIndex(); paginator.isValidIndex(i) && i < proposals.size(); i++) {
+            Proposal proposal = proposals.get(i);
+            int base = row * 9;
+            row++;
 
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.GRAY + lang("alliance.gui.vote.proposer", getViewer(), proposal.getProposerName()));
@@ -101,6 +132,18 @@ public class AllianceVotingFrame extends SCFrame {
             }
             disagree.setListener(ClickType.LEFT, () -> vote(proposal, false));
             add(disagree);
+        }
+    }
+
+    private void previousPage() {
+        if (paginator.previousPage()) {
+            InventoryDrawer.open(this);
+        }
+    }
+
+    private void nextPage() {
+        if (paginator.nextPage()) {
+            InventoryDrawer.open(this);
         }
     }
 

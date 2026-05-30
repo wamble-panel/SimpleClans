@@ -357,3 +357,21 @@ permissions:
       simpleclans.leader.rank.permissions.remove: true
       simpleclans.leader.rank.permissions.list: true
       simpleclans.leader.discord.create: true
+  clans.alliance.join:
+    description: Can set HQ and join/leave a NATO/SCO alliance (clan leaders)
+    default: true
+  clans.alliance.propose:
+    description: Can submit and withdraw alliance proposals (clan leaders)
+    default: true
+  clans.alliance.vote:
+    description: Can vote on alliance proposals during meetings (clan leaders)
+    default: true
+  clans.alliance.chat.use:
+    description: Can use alliance chat
+    default: true
+  clans.alliance.chat.spy:
+    description: Can see both alliances' chat without being a member
+    default: op
+  clans.alliance.admin:
+    description: Can administer alliances (force-remove, set host, trigger meetings)
+    default: op
