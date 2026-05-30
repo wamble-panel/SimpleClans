@@ -1493,11 +1493,13 @@ public final class StorageManager {
         }
 
         // Membership, ordered by join order so the host rotation is correct.
-        String memberQuery = "SELECT `alliance_type`, `clan_tag` FROM `" + getPrefixedTable("alliance_members")
-                + "` ORDER BY `join_order` ASC;";
+        String memberQuery = "SELECT `alliance_type`, `clan_tag`, `joined_date` FROM `"
+                + getPrefixedTable("alliance_members") + "` ORDER BY `join_order` ASC;";
         Map<AllianceType, List<String>> members = new EnumMap<>(AllianceType.class);
+        Map<AllianceType, Map<String, Long>> joinDates = new EnumMap<>(AllianceType.class);
         for (AllianceType type : AllianceType.values()) {
             members.put(type, new ArrayList<>());
+            joinDates.put(type, new HashMap<>());
         }
         try (PreparedStatement pst = connection.prepareStatement(memberQuery);
              ResultSet res = pst.executeQuery()) {
@@ -1506,13 +1508,19 @@ public final class StorageManager {
                 if (type == null) {
                     continue;
                 }
-                members.get(type).add(res.getString("clan_tag"));
+                String tag = res.getString("clan_tag");
+                members.get(type).add(tag);
+                joinDates.get(type).put(tag, res.getLong("joined_date"));
             }
         } catch (SQLException ex) {
             plugin.getLogger().log(Level.SEVERE, "Error loading alliance members", ex);
         }
         for (AllianceType type : AllianceType.values()) {
-            manager.getAlliance(type).setMemberTags(members.get(type));
+            Alliance alliance = manager.getAlliance(type);
+            alliance.setMemberTags(members.get(type));
+            for (Map.Entry<String, Long> entry : joinDates.get(type).entrySet()) {
+                alliance.setJoinDate(entry.getKey(), entry.getValue());
+            }
         }
     }
 

@@ -1652,6 +1652,23 @@ public class Clan implements Serializable, Comparable<Clan> {
         SimpleClans.getInstance().getStorageManager().updateClan(this);
     }
 
+    /**
+     * @return the highest inactivity warning threshold (in days) that has already been
+     * sent for this clan in the given alliance (0 = none sent)
+     */
+    public int getInactivityWarnedThreshold(@NotNull String allianceId) {
+        return flags.getNumber("alliance_" + allianceId + "_inactivityWarnedDay").intValue();
+    }
+
+    /**
+     * Records that an inactivity warning has been sent at the given day threshold so it
+     * is not re-sent on subsequent task runs. Reset to 0 when the clan joins (or rejoins).
+     */
+    public void setInactivityWarnedThreshold(@NotNull String allianceId, int threshold) {
+        flags.put("alliance_" + allianceId + "_inactivityWarnedDay", threshold);
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
     public String getTagLabel(boolean isLeader) {
         SettingsManager sm = SimpleClans.getInstance().getSettingsManager();
         String bracketColor = isLeader ? sm.getColored(TAG_BRACKET_LEADER_COLOR) : sm.getColored(TAG_BRACKET_COLOR);

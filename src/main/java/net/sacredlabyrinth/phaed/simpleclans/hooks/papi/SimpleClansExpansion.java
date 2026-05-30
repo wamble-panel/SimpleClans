@@ -7,7 +7,13 @@ import net.sacredlabyrinth.phaed.simpleclans.Clan;
 import net.sacredlabyrinth.phaed.simpleclans.ClanPlayer;
 import net.sacredlabyrinth.phaed.simpleclans.Helper;
 import net.sacredlabyrinth.phaed.simpleclans.SimpleClans;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.Alliance;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceManager;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceMeetingManager;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceType;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.Proposal;
 import net.sacredlabyrinth.phaed.simpleclans.managers.ClanManager;
+import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -15,6 +21,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -116,6 +123,13 @@ public class SimpleClansExpansion extends PlaceholderExpansion implements Relati
 
     @Override
     public String onRequest(@Nullable OfflinePlayer player, @NotNull String params) {
+        // Alliance placeholders are handled independently of the reflection-based system.
+        if (params.startsWith("alliance_")) {
+            ClanPlayer cp = player != null ? clanManager.getAnyClanPlayer(player.getUniqueId()) : null;
+            Clan clan = cp != null ? cp.getClan() : null;
+            return resolveAlliancePlaceholder(clan, params.substring("alliance_".length()));
+        }
+
         ClanPlayer cp = null;
         if (player != null) {
             cp = clanManager.getAnyClanPlayer(player.getUniqueId());
@@ -137,6 +151,90 @@ public class SimpleClansExpansion extends PlaceholderExpansion implements Relati
             params = params.replace(matcher.group("strip"), "");
         }
         return getValue(player, cp, clan, params);
+    }
+
+    /**
+     * Resolves all {@code %simpleclans_alliance_*%} placeholders.
+     *
+     * <p>Server-wide placeholders (nato_symbol, sco_members, etc.) work for any player.
+     * Per-clan placeholders require the player's clan to be in an alliance.</p>
+     */
+    @NotNull
+    private String resolveAlliancePlaceholder(@Nullable Clan clan, @NotNull String key) {
+        AllianceManager am = plugin.getAllianceManager();
+        AllianceMeetingManager mm = plugin.getAllianceMeetingManager();
+
+        // ── Server-wide (no clan context needed) ───────────────────────────────────
+        switch (key) {
+            case "nato_symbol":    return AllianceType.NATO.getColoredSymbol();
+            case "sco_symbol":     return AllianceType.SCO.getColoredSymbol();
+            case "nato_members":   return String.valueOf(am.getAlliance(AllianceType.NATO).getSize());
+            case "sco_members":    return String.valueOf(am.getAlliance(AllianceType.SCO).getSize());
+            case "nato_next_host": return resolveHostName(am.getAlliance(AllianceType.NATO));
+            case "sco_next_host":  return resolveHostName(am.getAlliance(AllianceType.SCO));
+        }
+
+        // ── Per-clan ────────────────────────────────────────────────────────────────
+        AllianceType type = clan != null ? am.getAllianceType(clan) : null;
+
+        switch (key) {
+            case "name":         return type != null ? type.getDisplayName() : "";
+            case "symbol":       return type != null ? type.getColoredSymbol() : "";
+            case "symbol_plain": return type != null ? type.getPlainSymbol() : "";
+            case "member_count": return type != null ? String.valueOf(am.getAlliance(type).getSize()) : "0";
+            case "meeting_active": return String.valueOf(type != null && mm.isMeetingActive(type));
+            case "next_meeting_time":
+                return type != null ? nullToEmpty(mm.getNextMeetingFormatted(type)) : "";
+            case "next_meeting_host":
+                return type != null ? resolveHostName(am.getAlliance(type)) : "";
+            case "is_host_this_week": {
+                if (clan == null || type == null) return "false";
+                return String.valueOf(clan.getTag().equals(am.getAlliance(type).getCurrentHostTag()));
+            }
+            case "open_proposals":
+                return type != null ? String.valueOf(mm.getPendingProposals(type).size()) : "0";
+            case "my_clan_voted": {
+                if (clan == null || type == null) return "false";
+                List<Proposal> active = mm.getMeetingProposals(type);
+                boolean voted = active.stream().anyMatch(p -> p.getVote(clan.getTag()) != null);
+                return String.valueOf(voted);
+            }
+            case "joined_date": {
+                if (clan == null || type == null) return "";
+                Long joinDate = am.getAlliance(type).getJoinDate(clan.getTag());
+                if (joinDate == null || joinDate == 0) return "";
+                return new SimpleDateFormat("yyyy-MM-dd").format(new Date(joinDate));
+            }
+            case "hq_set":
+                return String.valueOf(clan != null && type != null && am.getHq(clan, type) != null);
+        }
+
+        // HQ coordinate sub-keys
+        if (key.startsWith("hq_") && clan != null && type != null) {
+            Location hq = am.getHq(clan, type);
+            if (hq == null) return "";
+            switch (key) {
+                case "hq_world": return hq.getWorld() != null ? hq.getWorld().getName() : "";
+                case "hq_x": return String.valueOf((int) hq.getX());
+                case "hq_y": return String.valueOf((int) hq.getY());
+                case "hq_z": return String.valueOf((int) hq.getZ());
+            }
+        }
+
+        return "";
+    }
+
+    @NotNull
+    private String resolveHostName(@NotNull Alliance alliance) {
+        String tag = alliance.getCurrentHostTag();
+        if (tag == null) return "";
+        Clan c = clanManager.getClan(tag);
+        return c != null ? c.getName() : tag;
+    }
+
+    @NotNull
+    private static String nullToEmpty(@Nullable String s) {
+        return s != null ? s : "";
     }
 
     @Nullable

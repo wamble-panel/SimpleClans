@@ -9,7 +9,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.jetbrains.annotations.NotNull;
+
+import static net.sacredlabyrinth.phaed.simpleclans.managers.SettingsManager.ConfigField.ALLIANCE_SHOW_ON_DEATH;
 
 /**
  * Enforces alliance combat rules and keeps alliance membership consistent.
@@ -57,5 +60,36 @@ public class AllianceListener extends SCListener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onClanDisband(DisbandClanEvent event) {
         plugin.getAllianceManager().handleClanDisband(event.getClan());
+    }
+
+    /**
+     * Prepends the alliance symbol of the killer (or victim, if unaffiliated killer) to
+     * the vanilla death message so alliance membership is visible in kills. Controlled
+     * by {@code alliance.symbols.show-on-death-message}.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        if (!plugin.getSettingsManager().is(ALLIANCE_SHOW_ON_DEATH)) {
+            return;
+        }
+        String currentMessage = event.getDeathMessage();
+        if (currentMessage == null || currentMessage.isEmpty()) {
+            return;
+        }
+
+        Player victim = event.getEntity();
+        Player killer = victim.getKiller();
+
+        Clan victimClan = plugin.getClanManager().getClanByPlayerUniqueId(victim.getUniqueId());
+        Clan killerClan = killer != null ? plugin.getClanManager().getClanByPlayerUniqueId(killer.getUniqueId()) : null;
+
+        AllianceType killerType = plugin.getAllianceManager().getAllianceType(killerClan);
+        AllianceType victimType = plugin.getAllianceManager().getAllianceType(victimClan);
+
+        // Prefer the killer's symbol; fall back to the victim's.
+        AllianceType symbolType = killerType != null ? killerType : victimType;
+        if (symbolType != null) {
+            event.setDeathMessage(symbolType.getColoredSymbol() + " " + currentMessage);
+        }
     }
 }

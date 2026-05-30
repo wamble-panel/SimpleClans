@@ -194,6 +194,7 @@ public class SimpleClans extends JavaPlugin {
 
     private void startTasks() {
         allianceMeetingManager.start();
+        new AllianceInactivityTask(this).start();
         if (getSettingsManager().is(PERFORMANCE_SAVE_PERIODICALLY)) {
             new SaveDataTask().start();
         }

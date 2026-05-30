@@ -12,7 +12,9 @@ alliance:
     max-proposals-per-meeting: 10
     quorum-percent: 50
     inactivity-days: 14
-    inactivity-warning-days: [10, 13]
+    inactivity-warning-days:
+        - 10
+        - 13
     rejoin-cooldown-days: 7
     war:
         default-max-allies: 1

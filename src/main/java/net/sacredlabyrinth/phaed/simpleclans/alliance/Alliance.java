@@ -1,10 +1,13 @@
 package net.sacredlabyrinth.phaed.simpleclans.alliance;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * In-memory representation of a single alliance instance (one per {@link AllianceType}).
@@ -20,6 +23,8 @@ public class Alliance {
     // Ordered by join order. Stored as clan tags (clean tags) so the entity never
     // holds stale Clan references across disbands/reloads.
     private final List<String> memberTags = new ArrayList<>();
+    // Epoch-millis timestamps for when each clan joined (for PAPI and inactivity tracking).
+    private final Map<String, Long> joinDates = new HashMap<>();
     private int rotationIndex;
     private int maxAlliesPerWar;
 
@@ -50,6 +55,22 @@ public class Alliance {
     }
 
     /**
+     * Records the epoch-millis timestamp for when a clan joined. Used by
+     * PAPI placeholders and the inactivity task.
+     */
+    public synchronized void setJoinDate(@NotNull String clanTag, long epochMillis) {
+        joinDates.put(clanTag, epochMillis);
+    }
+
+    /**
+     * @return the epoch-millis join timestamp for the clan, or null if not recorded
+     */
+    @Nullable
+    public synchronized Long getJoinDate(@NotNull String clanTag) {
+        return joinDates.get(clanTag);
+    }
+
+    /**
      * Appends a member at the end of the join-order list.
      *
      * @param clanTag the clean clan tag
@@ -73,6 +94,7 @@ public class Alliance {
         if (index < 0) {
             return false;
         }
+        joinDates.remove(clanTag);
         memberTags.remove(index);
         // Keep rotation pointing at the same logical "next host" slot: if a member
         // before (or at) the current pointer left, shift the pointer back one.

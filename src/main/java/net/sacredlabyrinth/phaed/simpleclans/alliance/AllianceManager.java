@@ -152,8 +152,11 @@ public class AllianceManager {
             }
 
             int order = plugin.getStorageManager().getNextAllianceJoinOrder(type);
+            long now = System.currentTimeMillis();
             alliance.addMember(clan.getTag());
-            plugin.getStorageManager().insertAllianceMember(type, clan.getTag(), order, System.currentTimeMillis());
+            alliance.setJoinDate(clan.getTag(), now);
+            clan.setInactivityWarnedThreshold(type.getId(), 0);
+            plugin.getStorageManager().insertAllianceMember(type, clan.getTag(), order, now);
             plugin.getStorageManager().saveAllianceState(type, alliance.getRotationIndex(), alliance.getMaxAlliesPerWar());
             return JoinResult.SUCCESS;
         }

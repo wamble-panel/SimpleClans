@@ -626,7 +626,9 @@ public final class SettingsManager {
         ALLIANCE_CHAT_FORMAT_NATO("alliance.chat.format.nato", "&9★ [NATO] &7{clan} &f{player}: {message}"),
         ALLIANCE_CHAT_FORMAT_SCO("alliance.chat.format.sco", "&c✪ [SCO] &7{clan} &f{player}: {message}"),
         ALLIANCE_CHAT_LOG_ENABLED("alliance.chat.log-enabled", false),
-        ALLIANCE_CHAT_LOG_RETENTION_DAYS("alliance.chat.log-retention-days", 7);
+        ALLIANCE_CHAT_LOG_RETENTION_DAYS("alliance.chat.log-retention-days", 7),
+        ALLIANCE_INACTIVITY_DAYS("alliance.inactivity-days", 14),
+        ALLIANCE_INACTIVITY_WARNING_DAYS("alliance.inactivity-warning-days");
 
         private final String path;
         private final Object defaultValue;
