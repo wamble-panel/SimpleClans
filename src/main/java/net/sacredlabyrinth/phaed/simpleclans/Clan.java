@@ -269,6 +269,13 @@ public class Clan implements Serializable, Comparable<Clan> {
 
     public EconomyResponse setBalance(@NotNull BankOperator operator, @NotNull Cause cause,
                                       @NotNull BankLogger.Operation operation, double balance) {
+        // During initial load from DB we bypass the event entirely: the balance is
+        // authoritative from storage and no plugin should be able to veto or alter it.
+        if (cause == Cause.LOADING) {
+            this.balance = balance;
+            return SUCCESS;
+        }
+
         EconomyResponse response = SUCCESS;
 
         ClanBalanceUpdateEvent event = new ClanBalanceUpdateEvent(operator, this, getBalance(), balance, cause);

@@ -237,7 +237,7 @@ public class LeaderCommands extends BaseCommand {
         }
 
         double amount = settings.getDouble(ECONOMY_DISCORD_CREATION_PRICE);
-        if (settings.is(ECONOMY_PURCHASE_DISCORD_CREATE)) {
+        if (settings.is(ECONOMY_PURCHASE_DISCORD_CREATE) && permissions.hasEconomy()) {
             if (!permissions.playerHasMoney(player, amount)) {
                 player.sendMessage(AQUA + lang("not.sufficient.money", player, CurrencyFormat.format(amount)));
                 return;
@@ -253,7 +253,7 @@ public class LeaderCommands extends BaseCommand {
             ChatBlock.sendMessageKey(player, "discord.created.successfully");
         } catch (DiscordHookException ex) {
             // Return player's money if clan creation went wrong
-            if (settings.is(ECONOMY_PURCHASE_DISCORD_CREATE)) {
+            if (settings.is(ECONOMY_PURCHASE_DISCORD_CREATE) && permissions.hasEconomy()) {
                 permissions.grantPlayer(player, amount, DISCORD_CREATION);
             }
             String messageKey = ex.getMessageKey();

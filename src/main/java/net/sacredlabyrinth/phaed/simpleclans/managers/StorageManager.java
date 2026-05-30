@@ -376,9 +376,13 @@ public final class StorageManager {
      */
     public List<Clan> retrieveClans() {
         List<Clan> out = new ArrayList<>();
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return out;
+        }
 
         String query = "SELECT * FROM `" + getPrefixedTable("clans") + "`;";
-        try (PreparedStatement pst = core.getConnection().prepareStatement(query);
+        try (PreparedStatement pst = connection.prepareStatement(query);
              ResultSet res = pst.executeQuery()) {
             while (res.next()) {
                 try {
@@ -520,9 +524,13 @@ public final class StorageManager {
      */
     public List<ClanPlayer> retrieveClanPlayers() {
         List<ClanPlayer> out = new ArrayList<>();
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return out;
+        }
 
         String query = "SELECT * FROM `" + getPrefixedTable("players") + "`;";
-        try (PreparedStatement pst = core.getConnection().prepareStatement(query);
+        try (PreparedStatement pst = connection.prepareStatement(query);
              ResultSet res = pst.executeQuery()) {
             while (res.next()) {
                 try {
@@ -894,7 +902,11 @@ public final class StorageManager {
             modifiedClanPlayers.add(cp);
             return;
         }
-        try (PreparedStatement st = prepareUpdateClanPlayerStatement(core.getConnection())) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+        try (PreparedStatement st = prepareUpdateClanPlayerStatement(connection)) {
             setValues(st, cp);
             st.executeUpdate();
         } catch (SQLException ex) {
@@ -1346,10 +1358,14 @@ public final class StorageManager {
      * </p>
 	 */
 	public void saveModified() {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
         // Synchronize the entire retainAll + iteration + clear sequence on each set so the
         // async SaveDataTask and main-thread writes cannot interleave on a plain HashSet.
         synchronized (modifiedClanPlayers) {
-            try (PreparedStatement pst = prepareUpdateClanPlayerStatement(core.getConnection())) {
+            try (PreparedStatement pst = prepareUpdateClanPlayerStatement(connection)) {
                 //removing purged players
                 modifiedClanPlayers.retainAll(plugin.getClanManager().getAllClanPlayers());
                 for (ClanPlayer cp : modifiedClanPlayers) {
@@ -1363,7 +1379,7 @@ public final class StorageManager {
             }
         }
         synchronized (modifiedClans) {
-            try (PreparedStatement pst = prepareUpdateClanStatement(core.getConnection())) {
+            try (PreparedStatement pst = prepareUpdateClanStatement(connection)) {
                 //removing disbanded clans
                 modifiedClans.retainAll(plugin.getClanManager().getClans());
                 for (Clan clan : modifiedClans) {

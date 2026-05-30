@@ -57,7 +57,10 @@ public class FriendlyFire extends SCListener {
             // players fighting each other is not a clan-related combat scenario.
             boolean attackerHasClan = attackerClan != null;
             boolean victimHasClan = vcp != null && victimClan != null;
-            if ((attackerHasClan || victimHasClan) && plugin.getSettingsManager().is(SAFE_CIVILIANS)) {
+            // Only cancel when a clan member attacks a clanless player (civilian). Do NOT
+            // cancel the reverse (clanless attacking a clan member) — that player chose to
+            // engage and "safe civilians" is about protecting non-clan players, not clan ones.
+            if (attackerHasClan && !victimHasClan && plugin.getSettingsManager().is(SAFE_CIVILIANS)) {
                 ChatBlock.sendMessageKey(attacker, "cannot.attack.civilians");
                 event.setCancelled(true);
             }
