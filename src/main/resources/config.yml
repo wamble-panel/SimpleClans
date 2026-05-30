@@ -56,6 +56,9 @@ settings:
     tameable-mobs-sharing: false
     teleport-blocks: false
     teleport-home-on-spawn: false
+    # Set to true to enable item filtering on clan-home teleport.
+    # When false, no items are ever dropped regardless of drop-items-on-clan-home / keep-items-on-clan-home.
+    enable-item-list: false
     drop-items-on-clan-home: false
     keep-items-on-clan-home: false
     item-list: []

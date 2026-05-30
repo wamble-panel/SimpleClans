@@ -283,6 +283,7 @@ public final class SettingsManager {
         DROP_ITEMS_ON_CLAN_HOME("settings.drop-items-on-clan-home", false),
         KEEP_ITEMS_ON_CLAN_HOME("settings.keep-items-on-clan-home", false),
         ITEM_LIST("settings.item-list"),
+        ITEM_LIST_ENABLED("settings.enable-item-list", false),
         DEBUG("settings.show-debug-info", false),
         ENABLE_AUTO_GROUPS("settings.enable-auto-groups", false),
         CHAT_COMPATIBILITY_MODE("settings.chat-compatibility-mode", true),

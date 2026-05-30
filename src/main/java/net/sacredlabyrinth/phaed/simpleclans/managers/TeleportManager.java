@@ -133,6 +133,9 @@ public final class TeleportManager {
     }
 
     private void dropItems(Player player) {
+        if (!plugin.getSettingsManager().is(ITEM_LIST_ENABLED)) {
+            return;
+        }
         if (plugin.getPermissionsManager().has(player, "simpleclans.mod.keep-items")) {
             return;
         }
