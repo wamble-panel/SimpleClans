@@ -16,6 +16,8 @@ alliance:
         - 10
         - 13
     rejoin-cooldown-days: 7
+    # Server-wide broadcast when a clan joins NATO or SCO.
+    announce-join: true
     war:
         default-max-allies: 1
         max-allies-cap: 5

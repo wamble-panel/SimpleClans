@@ -1,5 +1,6 @@
 package net.sacredlabyrinth.phaed.simpleclans.alliance;
 
+import net.sacredlabyrinth.phaed.simpleclans.ChatBlock;
 import net.sacredlabyrinth.phaed.simpleclans.Clan;
 import net.sacredlabyrinth.phaed.simpleclans.EconomyResponse;
 import net.sacredlabyrinth.phaed.simpleclans.SimpleClans;
@@ -164,7 +165,24 @@ public class AllianceManager {
         // Wire ally and rival relationships outside the lock — these fire events and
         // touch Clan state which must not run while holding the alliance monitor.
         syncRelationships(clan, type, true);
+        announceJoin(clan, type);
         return JoinResult.SUCCESS;
+    }
+
+    /**
+     * Server-wide broadcast announcing a clan joining an alliance. Gated by the
+     * {@code alliance.announce-join} setting (default on).
+     */
+    private void announceJoin(@NotNull Clan clan, @NotNull AllianceType type) {
+        if (!plugin.getSettingsManager().is(ALLIANCE_ANNOUNCE_JOIN)) {
+            return;
+        }
+        String label = type.getColoredSymbol() + " " + type.getDisplayName();
+        String message = SimpleClans.lang("alliance.broadcast.joined", label,
+                clan.getColorTag() + " " + clan.getName());
+        for (Player online : plugin.getServer().getOnlinePlayers()) {
+            ChatBlock.sendMessage(online, message);
+        }
     }
 
     /**
