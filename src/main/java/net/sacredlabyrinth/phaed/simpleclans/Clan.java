@@ -1589,6 +1589,69 @@ public class Clan implements Serializable, Comparable<Clan> {
         return new Location(world, x, y, z, yaw, pitch);
     }
 
+    /**
+     * Sets this clan's alliance HQ for a given alliance. Stored in the clan flags blob,
+     * keyed per alliance id so NATO and SCO HQs never collide. The HQ persists
+     * independently of alliance membership (a clan must set its HQ before it can join).
+     *
+     * @param allianceId the alliance id (e.g. "NATO" or "SCO")
+     * @param home       the HQ location, or null to clear it
+     */
+    public void setAllianceHome(@NotNull String allianceId, @Nullable Location home) {
+        String p = "alliance_" + allianceId + "_hq";
+        flags.put(p + "X", home != null ? home.getX() : 0);
+        flags.put(p + "Y", home != null ? home.getY() : 0);
+        flags.put(p + "Z", home != null ? home.getZ() : 0);
+        flags.put(p + "Pitch", home != null ? home.getPitch() : 0);
+        flags.put(p + "Yaw", home != null ? home.getYaw() : 0);
+        String world = home != null && home.getWorld() != null ? home.getWorld().getName() : "";
+        flags.put(p + "World", world);
+
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
+    /**
+     * @param allianceId the alliance id (e.g. "NATO" or "SCO")
+     * @return this clan's alliance HQ for the given alliance, or null if unset / world unavailable
+     */
+    public @Nullable Location getAllianceHome(@NotNull String allianceId) {
+        String p = "alliance_" + allianceId + "_hq";
+        String homeWorld = flags.getString(p + "World");
+        if (homeWorld == null || homeWorld.isEmpty()) {
+            return null;
+        }
+        World world = Bukkit.getWorld(homeWorld);
+        if (world == null) {
+            return null;
+        }
+        double x = flags.getNumber(p + "X").doubleValue();
+        double y = flags.getNumber(p + "Y").doubleValue();
+        double z = flags.getNumber(p + "Z").doubleValue();
+        float yaw = flags.getNumber(p + "Yaw").floatValue();
+        float pitch = flags.getNumber(p + "Pitch").floatValue();
+
+        return new Location(world, x, y, z, yaw, pitch);
+    }
+
+    /**
+     * @param allianceId the alliance id (e.g. "NATO" or "SCO")
+     * @return the epoch-millis timestamp before which this clan may not rejoin the alliance (0 if none)
+     */
+    public long getAllianceRejoinCooldown(@NotNull String allianceId) {
+        return flags.getNumber("alliance_" + allianceId + "_rejoinUntil").longValue();
+    }
+
+    /**
+     * Sets the rejoin-cooldown expiry for this clan and alliance.
+     *
+     * @param allianceId the alliance id (e.g. "NATO" or "SCO")
+     * @param until      epoch-millis timestamp before which rejoining is blocked
+     */
+    public void setAllianceRejoinCooldown(@NotNull String allianceId, long until) {
+        flags.put("alliance_" + allianceId + "_rejoinUntil", until);
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
     public String getTagLabel(boolean isLeader) {
         SettingsManager sm = SimpleClans.getInstance().getSettingsManager();
         String bracketColor = isLeader ? sm.getColored(TAG_BRACKET_LEADER_COLOR) : sm.getColored(TAG_BRACKET_COLOR);

@@ -595,7 +595,24 @@ public final class SettingsManager {
         PERFORMANCE_USE_BUNGEECORD("performance.use-bungeecord", false),
         PERFORMANCE_HEAD_CACHING("performance.cache-player-heads", false),
 
-        SAFE_CIVILIANS("safe-civilians", false);
+        SAFE_CIVILIANS("safe-civilians", false),
+
+        /*
+        ================
+        > Alliance (NATO / SCO)
+        ================
+         */
+        ALLIANCE_JOINING_FEE("alliance.joining-fee", 1000000),
+        ALLIANCE_MAX_MEMBERS("alliance.max-members", 12),
+        ALLIANCE_REJOIN_COOLDOWN_DAYS("alliance.rejoin-cooldown-days", 7),
+        ALLIANCE_WAR_DEFAULT_MAX_ALLIES("alliance.war.default-max-allies", 1),
+        ALLIANCE_WAR_MAX_ALLIES_CAP("alliance.war.max-allies-cap", 5),
+        ALLIANCE_SYMBOL_NATO("alliance.symbols.nato", "★"),
+        ALLIANCE_SYMBOL_SCO("alliance.symbols.sco", "✪"),
+        ALLIANCE_COLOR_NATO("alliance.symbols.nato-color", "&9"),
+        ALLIANCE_COLOR_SCO("alliance.symbols.sco-color", "&c"),
+        ALLIANCE_SHOW_ON_NAMEPLATE("alliance.symbols.show-on-nameplate", true),
+        ALLIANCE_SHOW_ON_DEATH("alliance.symbols.show-on-death-message", true);
 
         private final String path;
         private final Object defaultValue;

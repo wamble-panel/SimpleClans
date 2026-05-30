@@ -1,4 +1,37 @@
 safe-civilians: false
+alliance:
+    joining-fee: 1000000
+    max-members: 12
+    # Weekly meeting scheduling (used from phase 2 onward)
+    meeting-day: SATURDAY
+    meeting-time: '18:00'
+    meeting-timezone: 'Asia/Dubai'
+    meeting-duration-minutes: 60
+    warning-lead-minutes: 10
+    proposal-lockout-minutes: 30
+    max-proposals-per-meeting: 10
+    quorum-percent: 50
+    inactivity-days: 14
+    inactivity-warning-days: [10, 13]
+    rejoin-cooldown-days: 7
+    war:
+        default-max-allies: 1
+        max-allies-cap: 5
+    symbols:
+        nato: '★'
+        sco: '✪'
+        nato-color: '&9'
+        sco-color: '&c'
+        show-on-nameplate: true
+        show-on-death-message: true
+    custom-proposal:
+        profanity-filter: false
+        blacklist: []
+    chat:
+        log-retention-days: 7
+        format:
+            nato: '&9★ [NATO] &7{clan} &f{player}: {message}'
+            sco: '&c✪ [SCO] &7{clan} &f{player}: {message}'
 tag:
     default-color: '8'
     max-length: 5

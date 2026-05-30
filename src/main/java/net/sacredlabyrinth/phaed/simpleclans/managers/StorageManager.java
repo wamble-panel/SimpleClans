@@ -1,6 +1,9 @@
 package net.sacredlabyrinth.phaed.simpleclans.managers;
 
 import net.sacredlabyrinth.phaed.simpleclans.*;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.Alliance;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceManager;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceType;
 import net.sacredlabyrinth.phaed.simpleclans.events.ClanBalanceUpdateEvent;
 import net.sacredlabyrinth.phaed.simpleclans.loggers.BankLogger;
 import net.sacredlabyrinth.phaed.simpleclans.loggers.BankOperator;
@@ -234,6 +237,10 @@ public final class StorageManager {
             } else {
                 plugin.getServer().getConsoleSender().sendMessage("[SimpleClans] " + ChatColor.RED + lang("sqlite.connection.failed"));
             }
+        }
+
+        if (core != null && core.checkConnection()) {
+            createAllianceTables();
         }
     }
 
@@ -1364,6 +1371,182 @@ public final class StorageManager {
             } catch (SQLException ex) {
                 plugin.getLogger().log(Level.SEVERE, "Error saving modified Clans:", ex);
             }
+        }
+    }
+
+    // ===================================================================================
+    // Alliance (NATO / SCO) persistence
+    //
+    // Alliance-level state lives in two dedicated tables, fully separate from the
+    // clans/players/kills tables. Per-clan alliance data (HQ, rejoin cooldown) lives
+    // in the clan `flags` blob and is saved with the clan. Each row is scoped by
+    // `alliance_type`, so NATO and SCO never share storage.
+    // ===================================================================================
+
+    /**
+     * Creates the alliance tables if absent. The DDL is intentionally written to be
+     * valid on both SQLite and MySQL (backticked identifiers, portable column types,
+     * composite primary keys, no auto-increment).
+     */
+    private void createAllianceTables() {
+        if (!core.existsTable(getPrefixedTable("alliances"))) {
+            plugin.getLogger().info("Creating table: " + getPrefixedTable("alliances"));
+            String query = "CREATE TABLE IF NOT EXISTS `" + getPrefixedTable("alliances") + "` ("
+                    + " `alliance_type` varchar(10) NOT NULL,"
+                    + " `rotation_index` int NOT NULL DEFAULT 0,"
+                    + " `max_allies_per_war` int NOT NULL DEFAULT 1,"
+                    + " PRIMARY KEY (`alliance_type`));";
+            core.execute(query);
+        }
+        if (!core.existsTable(getPrefixedTable("alliance_members"))) {
+            plugin.getLogger().info("Creating table: " + getPrefixedTable("alliance_members"));
+            String query = "CREATE TABLE IF NOT EXISTS `" + getPrefixedTable("alliance_members") + "` ("
+                    + " `alliance_type` varchar(10) NOT NULL,"
+                    + " `clan_tag` varchar(25) NOT NULL,"
+                    + " `join_order` int NOT NULL,"
+                    + " `joined_date` bigint NOT NULL,"
+                    + " PRIMARY KEY (`alliance_type`,`clan_tag`));";
+            core.execute(query);
+        }
+    }
+
+    /**
+     * Loads alliance rows and membership (ordered by join order) into the manager.
+     */
+    public void loadAlliances(@NotNull AllianceManager manager) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+
+        // Alliance-level rows (rotation index + max allies per war).
+        String allianceQuery = "SELECT `alliance_type`, `rotation_index`, `max_allies_per_war` FROM `"
+                + getPrefixedTable("alliances") + "`;";
+        try (PreparedStatement pst = connection.prepareStatement(allianceQuery);
+             ResultSet res = pst.executeQuery()) {
+            while (res.next()) {
+                AllianceType type = AllianceType.fromString(res.getString("alliance_type"));
+                if (type == null) {
+                    continue;
+                }
+                Alliance alliance = manager.getAlliance(type);
+                alliance.setRotationIndex(res.getInt("rotation_index"));
+                alliance.setMaxAlliesPerWar(res.getInt("max_allies_per_war"));
+            }
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error loading alliances", ex);
+        }
+
+        // Membership, ordered by join order so the host rotation is correct.
+        String memberQuery = "SELECT `alliance_type`, `clan_tag` FROM `" + getPrefixedTable("alliance_members")
+                + "` ORDER BY `join_order` ASC;";
+        Map<AllianceType, List<String>> members = new EnumMap<>(AllianceType.class);
+        for (AllianceType type : AllianceType.values()) {
+            members.put(type, new ArrayList<>());
+        }
+        try (PreparedStatement pst = connection.prepareStatement(memberQuery);
+             ResultSet res = pst.executeQuery()) {
+            while (res.next()) {
+                AllianceType type = AllianceType.fromString(res.getString("alliance_type"));
+                if (type == null) {
+                    continue;
+                }
+                members.get(type).add(res.getString("clan_tag"));
+            }
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error loading alliance members", ex);
+        }
+        for (AllianceType type : AllianceType.values()) {
+            manager.getAlliance(type).setMemberTags(members.get(type));
+        }
+    }
+
+    /**
+     * @return the next join-order value for the given alliance (max + 1, or 0 if empty)
+     */
+    public int getNextAllianceJoinOrder(@NotNull AllianceType type) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return 0;
+        }
+        String query = "SELECT MAX(`join_order`) AS max_order FROM `" + getPrefixedTable("alliance_members")
+                + "` WHERE `alliance_type` = ?;";
+        try (PreparedStatement pst = connection.prepareStatement(query)) {
+            pst.setString(1, type.getId());
+            try (ResultSet res = pst.executeQuery()) {
+                if (res.next()) {
+                    int max = res.getInt("max_order");
+                    if (!res.wasNull()) {
+                        return max + 1;
+                    }
+                }
+            }
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error reading alliance join order", ex);
+        }
+        return 0;
+    }
+
+    public void insertAllianceMember(@NotNull AllianceType type, @NotNull String clanTag, int joinOrder, long joinedDate) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+        String query = "INSERT INTO `" + getPrefixedTable("alliance_members")
+                + "` (`alliance_type`, `clan_tag`, `join_order`, `joined_date`) VALUES (?, ?, ?, ?);";
+        try (PreparedStatement pst = connection.prepareStatement(query)) {
+            pst.setString(1, type.getId());
+            pst.setString(2, clanTag);
+            pst.setInt(3, joinOrder);
+            pst.setLong(4, joinedDate);
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error inserting alliance member", ex);
+        }
+    }
+
+    public void deleteAllianceMember(@NotNull AllianceType type, @NotNull String clanTag) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+        String query = "DELETE FROM `" + getPrefixedTable("alliance_members")
+                + "` WHERE `alliance_type` = ? AND `clan_tag` = ?;";
+        try (PreparedStatement pst = connection.prepareStatement(query)) {
+            pst.setString(1, type.getId());
+            pst.setString(2, clanTag);
+            pst.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error deleting alliance member", ex);
+        }
+    }
+
+    /**
+     * Upserts the alliance-level row (rotation index + max allies). Implemented as
+     * delete-then-insert so it is portable across SQLite and MySQL.
+     */
+    public void saveAllianceState(@NotNull AllianceType type, int rotationIndex, int maxAlliesPerWar) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+        String delete = "DELETE FROM `" + getPrefixedTable("alliances") + "` WHERE `alliance_type` = ?;";
+        String insert = "INSERT INTO `" + getPrefixedTable("alliances")
+                + "` (`alliance_type`, `rotation_index`, `max_allies_per_war`) VALUES (?, ?, ?);";
+        try (PreparedStatement del = connection.prepareStatement(delete)) {
+            del.setString(1, type.getId());
+            del.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error clearing alliance state", ex);
+            return;
+        }
+        try (PreparedStatement ins = connection.prepareStatement(insert)) {
+            ins.setString(1, type.getId());
+            ins.setInt(2, rotationIndex);
+            ins.setInt(3, maxAlliesPerWar);
+            ins.executeUpdate();
+        } catch (SQLException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Error saving alliance state", ex);
         }
     }
 }
