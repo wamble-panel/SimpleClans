@@ -5,12 +5,14 @@ import net.sacredlabyrinth.phaed.simpleclans.EconomyResponse;
 import net.sacredlabyrinth.phaed.simpleclans.SimpleClans;
 import net.sacredlabyrinth.phaed.simpleclans.events.ClanBalanceUpdateEvent;
 import net.sacredlabyrinth.phaed.simpleclans.loggers.BankOperator;
+import net.sacredlabyrinth.phaed.simpleclans.managers.ClanManager;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 import static net.sacredlabyrinth.phaed.simpleclans.managers.SettingsManager.ConfigField.*;
@@ -158,8 +160,11 @@ public class AllianceManager {
             clan.setInactivityWarnedThreshold(type.getId(), 0);
             plugin.getStorageManager().insertAllianceMember(type, clan.getTag(), order, now);
             plugin.getStorageManager().saveAllianceState(type, alliance.getRotationIndex(), alliance.getMaxAlliesPerWar());
-            return JoinResult.SUCCESS;
         }
+        // Wire ally and rival relationships outside the lock — these fire events and
+        // touch Clan state which must not run while holding the alliance monitor.
+        syncRelationships(clan, type, true);
+        return JoinResult.SUCCESS;
     }
 
     /**
@@ -189,6 +194,7 @@ public class AllianceManager {
             plugin.getStorageManager().deleteAllianceMember(type, clan.getTag());
             plugin.getStorageManager().saveAllianceState(type, alliance.getRotationIndex(), alliance.getMaxAlliesPerWar());
         }
+        syncRelationships(clan, type, false);
         if (applyCooldown) {
             int days = plugin.getSettingsManager().getInt(ALLIANCE_REJOIN_COOLDOWN_DAYS);
             clan.setAllianceRejoinCooldown(type.getId(), System.currentTimeMillis() + days * 24L * 60L * 60L * 1000L);
@@ -222,5 +228,40 @@ public class AllianceManager {
     public String getSymbolPrefix(@Nullable Clan clan) {
         AllianceType type = getAllianceType(clan);
         return type == null ? "" : type.getColoredSymbol() + " ";
+    }
+
+    /**
+     * Adds or removes ally/rival relationships between {@code clan} and every clan in
+     * the same and opposite alliances. Called after join (joining=true) and after
+     * removal (joining=false). Must be called outside the alliance's synchronized block.
+     */
+    private void syncRelationships(@NotNull Clan clan, @NotNull AllianceType type, boolean joining) {
+        ClanManager cm = plugin.getClanManager();
+
+        // Same alliance — mutual ally or un-ally. getMemberTags() returns a defensive copy.
+        List<String> sameMembers = alliances.get(type).getMemberTags();
+        for (String tag : sameMembers) {
+            if (tag.equals(clan.getTag())) continue;
+            Clan peer = cm.getClan(tag);
+            if (peer == null) continue;
+            if (joining) {
+                clan.addAlly(peer);
+            } else {
+                clan.removeAlly(peer);
+            }
+        }
+
+        // Opposite alliance — mutual rival or un-rival.
+        AllianceType rivalType = type == AllianceType.NATO ? AllianceType.SCO : AllianceType.NATO;
+        List<String> rivalMembers = alliances.get(rivalType).getMemberTags();
+        for (String tag : rivalMembers) {
+            Clan rivalClan = cm.getClan(tag);
+            if (rivalClan == null) continue;
+            if (joining) {
+                clan.addRival(rivalClan);
+            } else {
+                clan.removeRival(rivalClan);
+            }
+        }
     }
 }

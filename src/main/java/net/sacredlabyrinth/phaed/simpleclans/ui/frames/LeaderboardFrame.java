@@ -59,7 +59,8 @@ public class LeaderboardFrame extends SCFrame {
                             rankingResolver.getRankingNumber(cp), cp.getName()),
                     Arrays.asList(
                             cp.getClan() == null ? lang("gui.playerdetails.player.lore.noclan", getViewer())
-                                    : lang("gui.playerdetails.player.lore.clan", getViewer(),
+                                    : SimpleClans.getInstance().getAllianceManager().getSymbolPrefix(cp.getClan())
+                                    + lang("gui.playerdetails.player.lore.clan", getViewer(),
                                     cp.getClan().getColorTag(), cp.getClan().getName()),
                             lang("gui.playerdetails.player.lore.kdr", getViewer(), KDRFormat.format(cp.getKDR())),
                             lang("gui.playerdetails.player.lore.last.seen", getViewer(), cp.getLastSeenString(getViewer()))),

@@ -14,6 +14,8 @@ import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceType;
 import net.sacredlabyrinth.phaed.simpleclans.managers.ClanManager;
 import net.sacredlabyrinth.phaed.simpleclans.managers.PermissionsManager;
 import net.sacredlabyrinth.phaed.simpleclans.managers.SettingsManager;
+import net.sacredlabyrinth.phaed.simpleclans.ui.InventoryDrawer;
+import net.sacredlabyrinth.phaed.simpleclans.ui.frames.AllianceMembersFrame;
 import net.sacredlabyrinth.phaed.simpleclans.utils.CurrencyFormat;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -92,6 +94,18 @@ public class AllianceCommands extends BaseCommand {
     @Description("{@@command.description.alliance.info}")
     public void scoInfo(Player player) {
         info(player, AllianceType.SCO);
+    }
+
+    @Subcommand("nato members")
+    @Description("{@@command.description.alliance.members}")
+    public void natoMembers(Player player) {
+        InventoryDrawer.open(new AllianceMembersFrame(null, player, AllianceType.NATO));
+    }
+
+    @Subcommand("sco members")
+    @Description("{@@command.description.alliance.members}")
+    public void scoMembers(Player player) {
+        InventoryDrawer.open(new AllianceMembersFrame(null, player, AllianceType.SCO));
     }
 
     // ----- shared, alliance-scoped handlers -----

@@ -58,7 +58,8 @@ public class ClanListFrame extends SCFrame {
 			Clan clan = clans.get(i);
 			ItemStack banner = clan.getBanner() != null ? clan.getBanner() : XMaterial.BLACK_BANNER.parseItem();
 			SCComponent c = new SCComponentImpl(
-					lang("gui.clanlist.clan.title", getViewer(), clan.getColorTag(), clan.getName()),
+					SimpleClans.getInstance().getAllianceManager().getSymbolPrefix(clan)
+							+ lang("gui.clanlist.clan.title", getViewer(), clan.getColorTag(), clan.getName()),
 					Arrays.asList(lang("gui.clanlist.clan.lore.position", getViewer(),
 							rankingResolver.getRankingNumber(clan)),
 							lang("gui.clanlist.clan.lore.kdr", getViewer(), KDRFormat.format(clan.getTotalKDR())),
