@@ -54,7 +54,7 @@ public enum AllianceType {
     }
 
     /**
-     * @return the configured color code string for this alliance (e.g. "&9")
+     * @return the configured color code string for this alliance (e.g. "&amp;9")
      */
     public String getColorCode() {
         return settings().getString(colorField);
