@@ -42,6 +42,8 @@ public class Clan implements Serializable, Comparable<Clan> {
 
     private static final long serialVersionUID = 1L;
     private static final String WARRING_KEY = "warring";
+    private static final String ALLIANCE_AUTO_ALLIES_KEY = "alliance_auto_allies";
+    private static final String ALLIANCE_AUTO_RIVALS_KEY = "alliance_auto_rivals";
     private boolean verified;
     private String tag;
     private String colorTag;
@@ -1531,6 +1533,37 @@ public class Clan implements Serializable, Comparable<Clan> {
                 .map(tag -> SimpleClans.getInstance().getClanManager().getClan(tag))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Tags of clans this clan was automatically allied with by joining a NATO/SCO
+     * alliance. Tracked so that leaving the alliance only tears down the bonds the
+     * alliance system created, never a manually-established ally relationship.
+     *
+     * @return a mutable copy of the tracked tags
+     */
+    public List<String> getAllianceAutoAllies() {
+        return flags.getStringList(ALLIANCE_AUTO_ALLIES_KEY);
+    }
+
+    public void setAllianceAutoAllies(@NotNull List<String> tags) {
+        flags.put(ALLIANCE_AUTO_ALLIES_KEY, tags);
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
+    /**
+     * Tags of clans this clan was automatically made a rival of by joining a
+     * NATO/SCO alliance. See {@link #getAllianceAutoAllies()}.
+     *
+     * @return a mutable copy of the tracked tags
+     */
+    public List<String> getAllianceAutoRivals() {
+        return flags.getStringList(ALLIANCE_AUTO_RIVALS_KEY);
+    }
+
+    public void setAllianceAutoRivals(@NotNull List<String> tags) {
+        flags.put(ALLIANCE_AUTO_RIVALS_KEY, tags);
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
     }
 
     /**

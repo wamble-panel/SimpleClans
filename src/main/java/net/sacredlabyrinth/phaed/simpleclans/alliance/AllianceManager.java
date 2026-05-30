@@ -12,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -252,33 +253,92 @@ public class AllianceManager {
      * Adds or removes ally/rival relationships between {@code clan} and every clan in
      * the same and opposite alliances. Called after join (joining=true) and after
      * removal (joining=false). Must be called outside the alliance's synchronized block.
+     *
+     * <p>Only bonds the alliance system itself creates are tracked (per clan, on both
+     * sides) and later removed, so a manually-established ally/rival relationship is
+     * never silently destroyed when a clan leaves the alliance.</p>
      */
     private void syncRelationships(@NotNull Clan clan, @NotNull AllianceType type, boolean joining) {
-        ClanManager cm = plugin.getClanManager();
+        if (joining) {
+            applyJoinRelationships(clan, type);
+        } else {
+            removeAutoRelationships(clan);
+        }
+    }
 
-        // Same alliance — mutual ally or un-ally. getMemberTags() returns a defensive copy.
-        List<String> sameMembers = alliances.get(type).getMemberTags();
-        for (String tag : sameMembers) {
+    private void applyJoinRelationships(@NotNull Clan clan, @NotNull AllianceType type) {
+        ClanManager cm = plugin.getClanManager();
+        List<String> autoAllies = clan.getAllianceAutoAllies();
+        List<String> autoRivals = clan.getAllianceAutoRivals();
+
+        // Same alliance -> allies. getMemberTags() is a defensive copy and now includes clan.
+        for (String tag : alliances.get(type).getMemberTags()) {
             if (tag.equals(clan.getTag())) continue;
             Clan peer = cm.getClan(tag);
             if (peer == null) continue;
-            if (joining) {
-                clan.addAlly(peer);
-            } else {
-                clan.removeAlly(peer);
+            // Leave pre-existing (manual) allies untouched so a later leave can't tear them down.
+            if (clan.getAllies().contains(peer.getTag())) continue;
+            clan.addAlly(peer);
+            if (!autoAllies.contains(peer.getTag())) {
+                autoAllies.add(peer.getTag());
             }
+            recordReverse(peer, clan.getTag(), true);
         }
 
-        // Opposite alliance — mutual rival or un-rival.
+        // Opposite alliance -> rivals.
         AllianceType rivalType = type == AllianceType.NATO ? AllianceType.SCO : AllianceType.NATO;
-        List<String> rivalMembers = alliances.get(rivalType).getMemberTags();
-        for (String tag : rivalMembers) {
+        for (String tag : alliances.get(rivalType).getMemberTags()) {
             Clan rivalClan = cm.getClan(tag);
             if (rivalClan == null) continue;
-            if (joining) {
-                clan.addRival(rivalClan);
+            if (clan.getRivals().contains(rivalClan.getTag())) continue;
+            clan.addRival(rivalClan);
+            if (!autoRivals.contains(rivalClan.getTag())) {
+                autoRivals.add(rivalClan.getTag());
+            }
+            recordReverse(rivalClan, clan.getTag(), false);
+        }
+
+        clan.setAllianceAutoAllies(autoAllies);
+        clan.setAllianceAutoRivals(autoRivals);
+    }
+
+    private void removeAutoRelationships(@NotNull Clan clan) {
+        ClanManager cm = plugin.getClanManager();
+
+        for (String tag : clan.getAllianceAutoAllies()) {
+            Clan peer = cm.getClan(tag);
+            if (peer == null) continue;
+            clan.removeAlly(peer);
+            List<String> peerAllies = peer.getAllianceAutoAllies();
+            if (peerAllies.remove(clan.getTag())) {
+                peer.setAllianceAutoAllies(peerAllies);
+            }
+        }
+        for (String tag : clan.getAllianceAutoRivals()) {
+            Clan rivalClan = cm.getClan(tag);
+            if (rivalClan == null) continue;
+            clan.removeRival(rivalClan);
+            List<String> peerRivals = rivalClan.getAllianceAutoRivals();
+            if (peerRivals.remove(clan.getTag())) {
+                rivalClan.setAllianceAutoRivals(peerRivals);
+            }
+        }
+        clan.setAllianceAutoAllies(new ArrayList<>());
+        clan.setAllianceAutoRivals(new ArrayList<>());
+    }
+
+    /**
+     * Records the reverse provenance entry on a peer so that either side leaving the
+     * alliance dissolves the auto-created bond.
+     */
+    private void recordReverse(@NotNull Clan peer, @NotNull String clanTag, boolean ally) {
+        List<String> peerList = ally ? peer.getAllianceAutoAllies() : peer.getAllianceAutoRivals();
+        if (!peerList.contains(clanTag)) {
+            peerList.add(clanTag);
+            if (ally) {
+                peer.setAllianceAutoAllies(peerList);
             } else {
-                clan.removeRival(rivalClan);
+                peer.setAllianceAutoRivals(peerList);
             }
         }
     }
