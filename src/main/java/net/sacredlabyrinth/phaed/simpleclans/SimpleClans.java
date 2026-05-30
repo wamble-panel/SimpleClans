@@ -1,6 +1,7 @@
 package net.sacredlabyrinth.phaed.simpleclans;
 
 import co.aikar.commands.BukkitCommandIssuer;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceChatManager;
 import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceManager;
 import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceMeetingManager;
 import net.sacredlabyrinth.phaed.simpleclans.commands.SCCommandManager;
@@ -64,6 +65,7 @@ public class SimpleClans extends JavaPlugin {
     private ProxyManager proxyManager;
     private AllianceManager allianceManager;
     private AllianceMeetingManager allianceMeetingManager;
+    private AllianceChatManager allianceChatManager;
     private boolean hasUUID;
     private static final Pattern ACF_PLACEHOLDER_PATTERN = Pattern.compile("\\{(?<key>[a-zA-Z]+?)}");
 
@@ -119,6 +121,7 @@ public class SimpleClans extends JavaPlugin {
         allianceManager = new AllianceManager(this);
         allianceManager.load();
         allianceMeetingManager = new AllianceMeetingManager(this);
+        allianceChatManager = new AllianceChatManager(this);
         teleportManager = new TeleportManager();
         protectionManager = new ProtectionManager();
         protectionManager.registerListeners();
@@ -154,6 +157,7 @@ public class SimpleClans extends JavaPlugin {
         pm.registerEvents(new PvPOnlyInWar(this), this);
         pm.registerEvents(new FriendlyFire(this), this);
         pm.registerEvents(new AllianceListener(this), this);
+        pm.registerEvents(new AllianceChatListener(this), this);
     }
 
     private void hookIntoPAPI() {
@@ -273,6 +277,10 @@ public class SimpleClans extends JavaPlugin {
 
     public AllianceMeetingManager getAllianceMeetingManager() {
         return allianceMeetingManager;
+    }
+
+    public AllianceChatManager getAllianceChatManager() {
+        return allianceChatManager;
     }
 
     public BankLogger getBankLogger() {

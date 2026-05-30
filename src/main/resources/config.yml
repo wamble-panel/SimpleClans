@@ -28,6 +28,7 @@ alliance:
         profanity-filter: false
         blacklist: []
     chat:
+        log-enabled: false
         log-retention-days: 7
         format:
             nato: '&9★ [NATO] &7{clan} &f{player}: {message}'

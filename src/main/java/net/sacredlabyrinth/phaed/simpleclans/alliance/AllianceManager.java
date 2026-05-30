@@ -193,6 +193,10 @@ public class AllianceManager {
         if (wipeHq) {
             clan.setAllianceHome(type.getId(), null);
         }
+        // Members lose alliance-chat access when their clan leaves/is removed.
+        if (plugin.getAllianceChatManager() != null) {
+            plugin.getAllianceChatManager().clearClanAccess(clan);
+        }
         return true;
     }
 

@@ -622,7 +622,11 @@ public final class SettingsManager {
         ALLIANCE_MAX_PROPOSALS_PER_MEETING("alliance.max-proposals-per-meeting", 10),
         ALLIANCE_QUORUM_PERCENT("alliance.quorum-percent", 50),
         ALLIANCE_CUSTOM_PROFANITY_FILTER("alliance.custom-proposal.profanity-filter", false),
-        ALLIANCE_CUSTOM_BLACKLIST("alliance.custom-proposal.blacklist");
+        ALLIANCE_CUSTOM_BLACKLIST("alliance.custom-proposal.blacklist"),
+        ALLIANCE_CHAT_FORMAT_NATO("alliance.chat.format.nato", "&9★ [NATO] &7{clan} &f{player}: {message}"),
+        ALLIANCE_CHAT_FORMAT_SCO("alliance.chat.format.sco", "&c✪ [SCO] &7{clan} &f{player}: {message}"),
+        ALLIANCE_CHAT_LOG_ENABLED("alliance.chat.log-enabled", false),
+        ALLIANCE_CHAT_LOG_RETENTION_DAYS("alliance.chat.log-retention-days", 7);
 
         private final String path;
         private final Object defaultValue;
