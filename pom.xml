@@ -165,6 +165,9 @@
                 </executions>
                 <configuration>
                     <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
+                    <!-- Don't fail the build when there's no .git (IDE source export,
+                         shallow CI checkout, source zip); just skip generating git.properties. -->
+                    <failOnNoGitDirectory>false</failOnNoGitDirectory>
                 </configuration>
             </plugin>
 
@@ -333,6 +336,9 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Fallback for the plugin.yml version when building without a .git directory.
+             git-commit-id overwrites this at the validate phase when .git is present. -->
+        <git.commit.id.describe-short>unknown</git.commit.id.describe-short>
     </properties>
 
     <!-- Upstream Distribution -->
