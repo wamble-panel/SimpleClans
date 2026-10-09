@@ -121,6 +121,16 @@ public class Paginator {
 	}
 
 	/**
+	 * Steps back to the last page that still has elements. Call after the backing
+	 * collection shrank, so the viewer isn't left on an empty page.
+	 */
+	public void clampToLastPage() {
+		while (currentPage > 0 && getMinIndex() >= getTotalElements()) {
+			currentPage--;
+		}
+	}
+
+	/**
 	 * @return if there is a previous page
 	 */
 	public boolean hasPreviousPage() {

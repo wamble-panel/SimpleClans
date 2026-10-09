@@ -13,11 +13,13 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 
 import static net.sacredlabyrinth.phaed.simpleclans.SimpleClans.lang;
@@ -58,6 +60,15 @@ public final class TeleportManager {
      * @param arrivalMessageKey the lang key sent when the player arrives
      */
     public void addPlayer(Player player, Location destination, String clanName, String arrivalMessageKey) {
+        addPlayer(player, destination, clanName, arrivalMessageKey, null);
+    }
+
+    /**
+     * Same as {@link #addPlayer(Player, Location, String, String)}, but the teleport is
+     * cancelled if {@code stillValid} returns false when the countdown ends.
+     */
+    public void addPlayer(Player player, Location destination, String clanName, String arrivalMessageKey,
+                          @Nullable BooleanSupplier stillValid) {
         PermissionsManager pm = plugin.getPermissionsManager();
 
         int secs = SimpleClans.getInstance().getSettingsManager().getInt(CLAN_TELEPORT_DELAY);
@@ -65,7 +76,7 @@ public final class TeleportManager {
             secs = 0;
         }
         waitingPlayers.put(player.getUniqueId().toString(),
-                new TeleportState(player, destination, clanName, secs, arrivalMessageKey));
+                new TeleportState(player, destination, clanName, secs, arrivalMessageKey, stillValid));
 
         if (secs > 0) {
             ChatBlock.sendMessage(player, AQUA + lang("waiting.for.teleport.stand.still.for.0.seconds", player, secs));
@@ -206,6 +217,10 @@ public final class TeleportManager {
     private void teleport(TeleportState state) {
         Player player = state.getPlayer();
         if (player == null) {
+            return;
+        }
+        if (!state.isStillValid()) {
+            ChatBlock.sendMessage(player, RED + lang("teleport.destination.unavailable", player));
             return;
         }
         ClanPlayer cp = plugin.getClanManager().getCreateClanPlayer(player.getUniqueId());

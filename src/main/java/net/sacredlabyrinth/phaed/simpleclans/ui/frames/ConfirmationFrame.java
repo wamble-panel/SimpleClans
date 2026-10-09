@@ -10,6 +10,8 @@ import org.bukkit.event.inventory.ClickType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import static net.sacredlabyrinth.phaed.simpleclans.SimpleClans.lang;
 
 public class ConfirmationFrame extends SCFrame {
@@ -35,7 +37,14 @@ public class ConfirmationFrame extends SCFrame {
     public void createComponents() {
         SCComponent confirm = new SCComponentImpl.Builder(XMaterial.LIME_WOOL.parseItem())
                 .withDisplayName(lang("gui.confirmation.confirm", getViewer())).withSlot(12).build();
-        confirm.setListener(ClickType.LEFT, listener);
+        // Run at most once: a fast double-click would otherwise repeat the action, e.g.
+        // charging twice for /clan setwarp or resetkdr.
+        AtomicBoolean confirmed = new AtomicBoolean();
+        confirm.setListener(ClickType.LEFT, () -> {
+            if (listener != null && confirmed.compareAndSet(false, true)) {
+                listener.run();
+            }
+        });
         add(confirm);
 
         SCComponent returnC = new SCComponentImpl.Builder(XMaterial.RED_WOOL.parseItem())

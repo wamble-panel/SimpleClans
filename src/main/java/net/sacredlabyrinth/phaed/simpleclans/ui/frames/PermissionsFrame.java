@@ -29,6 +29,7 @@ public class PermissionsFrame extends SCFrame {
 	public void createComponents() {
 		permissions.clear();
 		permissions.addAll(rank.getPermissions());
+		paginator.clampToLastPage();
 		for (int slot = 0; slot < 9; slot++) {
 			if (slot == 2 || slot == 4 || slot == 6 || slot == 7)
 				continue;

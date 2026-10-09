@@ -51,6 +51,7 @@ public class WarpsFrame extends SCFrame {
             }
         }
         warps.sort(Comparator.comparing(Clan::getTag));
+        paginator.clampToLastPage();
 
         for (int slot = 0; slot < 9; slot++) {
             if ((slot == 0 && getParent() != null) || slot == 4 || slot == 7 || slot == 8) {
@@ -110,7 +111,7 @@ public class WarpsFrame extends SCFrame {
             return;
         }
         String status;
-        if (own.getWarpLocation() == null) {
+        if (!own.hasWarpSet()) {
             status = lang("gui.warps.own.status.unset", getViewer());
         } else if (own.isWarpEnabled()) {
             status = lang("gui.warps.own.status.on", getViewer());

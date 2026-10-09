@@ -24,6 +24,9 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import static net.sacredlabyrinth.phaed.simpleclans.managers.SettingsManager.ConfigField.*;
 
 /**
@@ -52,7 +55,11 @@ public class WarpCommands extends BaseCommand {
             return;
         }
         if (tag == null) {
-            InventoryDrawer.open(new WarpsFrame(null, player));
+            if (settings.is(ENABLE_GUI)) {
+                InventoryDrawer.open(new WarpsFrame(null, player));
+            } else {
+                listWarps(player);
+            }
             return;
         }
         Clan target = cm.getClan(tag);
@@ -65,7 +72,25 @@ public class WarpCommands extends BaseCommand {
             ChatBlock.sendMessageKey(player, "warp.not.active", target.getName());
             return;
         }
-        plugin.getTeleportManager().addPlayer(player, warp, target.getName(), "now.at.warp");
+        // Re-checked when the countdown ends, in case the warp is turned off or moved meanwhile.
+        plugin.getTeleportManager().addPlayer(player, warp, target.getName(), "now.at.warp",
+                () -> target.hasActiveWarp() && warp.equals(target.getWarpLocation()));
+    }
+
+    /**
+     * Chat fallback for /clan warp when the GUI is disabled.
+     */
+    private void listWarps(@NotNull Player player) {
+        List<String> tags = cm.getClans().stream()
+                .filter(Clan::hasActiveWarp)
+                .map(Clan::getTag)
+                .sorted()
+                .collect(Collectors.toList());
+        if (tags.isEmpty()) {
+            ChatBlock.sendMessageKey(player, "gui.warps.empty");
+            return;
+        }
+        ChatBlock.sendMessageKey(player, "warp.list", String.join(", ", tags), clanCommand());
     }
 
     @Subcommand("setwarp")
@@ -126,7 +151,8 @@ public class WarpCommands extends BaseCommand {
     }
 
     private boolean hasWarp(@NotNull Player player, @NotNull Clan clan) {
-        if (clan.getWarpLocation() == null) {
+        // hasWarpSet, not getWarpLocation: a warp in an unloaded world can still be removed/toggled.
+        if (!clan.hasWarpSet()) {
             ChatBlock.sendMessageKey(player, "warp.not.set", clanCommand());
             return false;
         }

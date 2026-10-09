@@ -1641,19 +1641,36 @@ public class Clan implements Serializable, Comparable<Clan> {
         flags.put("warpPitch", warp != null ? warp.getPitch() : 0);
         flags.put("warpYaw", warp != null ? warp.getYaw() : 0);
         flags.put("warpWorld", warp != null && warp.getWorld() != null ? warp.getWorld().getName() : "");
+        // Clan data is shared across a BungeeCord network; remember which server owns the warp.
+        flags.put("warpServer", warp != null ? SimpleClans.getInstance().getProxyManager().getServerName() : "");
         flags.put("warpEnabled", warp != null);
 
         SimpleClans.getInstance().getStorageManager().updateClan(this);
     }
 
     /**
-     * @return this clan's warp, or null if none is set or its world is not loaded
+     * @return true if a warp has been set, even if its world is currently unloaded or it
+     * belongs to another server on the network
+     */
+    public boolean hasWarpSet() {
+        String warpWorld = flags.getString("warpWorld");
+        return warpWorld != null && !warpWorld.isEmpty();
+    }
+
+    /**
+     * @return this clan's warp, or null if none is set, its world is not loaded, or it was
+     * set on a different server of the network
      */
     public @Nullable Location getWarpLocation() {
-        String warpWorld = flags.getString("warpWorld");
-        if (warpWorld == null || warpWorld.isEmpty()) {
+        if (!hasWarpSet()) {
             return null;
         }
+        String warpServer = flags.getString("warpServer", "");
+        if (!warpServer.isEmpty()
+                && !warpServer.equals(SimpleClans.getInstance().getProxyManager().getServerName())) {
+            return null;
+        }
+        String warpWorld = flags.getString("warpWorld");
         World world = Bukkit.getWorld(warpWorld);
         if (world == null) {
             return null;

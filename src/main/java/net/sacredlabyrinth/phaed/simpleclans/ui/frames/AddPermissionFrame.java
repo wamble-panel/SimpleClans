@@ -36,6 +36,7 @@ public class AddPermissionFrame extends SCFrame {
 				availablePermissions.add(permission);
 			}
 		}
+		paginator.clampToLastPage();
 		for (int slot = 0; slot < 9; slot++) {
 			if (slot == 2 || slot == 6 || slot == 7)
 				continue;

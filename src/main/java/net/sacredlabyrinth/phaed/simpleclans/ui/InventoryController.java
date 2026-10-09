@@ -15,6 +15,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
@@ -43,6 +44,17 @@ public class InventoryController implements Listener {
 		}
 
 		frames.remove(entity.getUniqueId());
+	}
+
+	/**
+	 * Clicks are cancelled in onInteract, but drags are a separate event: without this, items
+	 * could be dragged into or across menu slots (a classic GUI duplication/loss vector).
+	 */
+	@EventHandler(ignoreCancelled = true)
+	public void onDrag(InventoryDragEvent event) {
+		if (frames.containsKey(event.getWhoClicked().getUniqueId())) {
+			event.setCancelled(true);
+		}
 	}
 
 	@EventHandler

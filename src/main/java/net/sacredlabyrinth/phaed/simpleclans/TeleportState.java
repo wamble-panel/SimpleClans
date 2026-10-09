@@ -5,6 +5,8 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.function.BooleanSupplier;
+
 
 public class TeleportState {
 
@@ -14,6 +16,8 @@ public class TeleportState {
     private int counter;
     private final String clanName;
     private final String arrivalMessageKey;
+    @Nullable
+    private final BooleanSupplier stillValid;
     private boolean processing;
 
     public TeleportState(Player player, Location destination, String clanName, int counter) {
@@ -22,12 +26,29 @@ public class TeleportState {
 
     public TeleportState(Player player, Location destination, String clanName, int counter,
                          String arrivalMessageKey) {
+        this(player, destination, clanName, counter, arrivalMessageKey, null);
+    }
+
+    /**
+     * @param stillValid checked when the countdown ends; the teleport is cancelled if it
+     *                   returns false (e.g. a clan warp was turned off meanwhile)
+     */
+    public TeleportState(Player player, Location destination, String clanName, int counter,
+                         String arrivalMessageKey, @Nullable BooleanSupplier stillValid) {
         this.offlinePlayer = player;
         this.destination = destination;
         this.origin = player.getLocation();
         this.clanName = clanName;
         this.counter = counter;
         this.arrivalMessageKey = arrivalMessageKey;
+        this.stillValid = stillValid;
+    }
+
+    /**
+     * @return false if the destination is no longer valid and the teleport should be cancelled
+     */
+    public boolean isStillValid() {
+        return stillValid == null || stillValid.getAsBoolean();
     }
 
     /**
