@@ -16,6 +16,7 @@ import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -42,6 +43,12 @@ public class InventoryController implements Listener {
 		}
 
 		frames.remove(entity.getUniqueId());
+	}
+
+	@EventHandler
+	public void onQuit(PlayerQuitEvent event) {
+		// A frame left registered across a relog would cancel clicks in unrelated inventories.
+		frames.remove(event.getPlayer().getUniqueId());
 	}
 
 	@EventHandler(ignoreCancelled = true)

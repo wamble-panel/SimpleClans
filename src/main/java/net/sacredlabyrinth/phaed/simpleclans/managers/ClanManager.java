@@ -485,6 +485,10 @@ public final class ClanManager {
             if (clan.getSize() == 1) {
                 clan.disband(null, false, false);
             } else {
+                // Strip the clan's permissions while we still know the clan (an online banned
+                // player would otherwise keep them, and the attachment would never be freed).
+                plugin.getPermissionsManager().removeClanPlayerPermissions(cp);
+                plugin.getPermissionsManager().removeClanPermissions(cp);
                 cp.setClan(null);
                 cp.addPastClan(clan.getColorTag() + (cp.isLeader() ? ChatColor.DARK_RED + "*" : ""));
                 cp.setLeader(false);

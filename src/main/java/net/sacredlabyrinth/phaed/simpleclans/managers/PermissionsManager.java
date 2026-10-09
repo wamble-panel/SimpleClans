@@ -20,6 +20,7 @@ import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 import static net.sacredlabyrinth.phaed.simpleclans.SimpleClans.lang;
 import static net.sacredlabyrinth.phaed.simpleclans.managers.SettingsManager.ConfigField.ENABLE_AUTO_GROUPS;
@@ -38,7 +39,8 @@ public final class PermissionsManager {
     private @Nullable Chat chat;
 
     private final HashMap<String, List<String>> permissions = new HashMap<>();
-    private final HashMap<Player, PermissionAttachment> permAttaches = new HashMap<>();
+    // Keyed by UUID, not Player, so a logged-out player's CraftPlayer is never kept alive here.
+    private final HashMap<UUID, PermissionAttachment> permAttaches = new HashMap<>();
 
     public PermissionsManager() {
         plugin = SimpleClans.getInstance();
@@ -106,15 +108,14 @@ public final class PermissionsManager {
         Player player = cp.toPlayer();
         if (player != null) {
             if (permissions.containsKey(clan.getTag())) {
-                if (!permAttaches.containsKey(player)) {
-                    permAttaches.put(player, player.addAttachment(SimpleClans.getInstance()));
-                }
+                PermissionAttachment attachment = permAttaches.computeIfAbsent(player.getUniqueId(),
+                        uuid -> player.addAttachment(SimpleClans.getInstance()));
                 //Adds all permissions from his clan
                 for (String perm : getPermissions(clan)) {
-                    permAttaches.get(player).setPermission(perm, true);
+                    attachment.setPermission(perm, true);
                 }
                 if (plugin.getSettingsManager().is(PERMISSIONS_AUTO_GROUP_GROUPNAME)) {
-                    permAttaches.get(player).setPermission("group." + clan.getTag(), true);
+                    attachment.setPermission("group." + clan.getTag(), true);
                 }
                 player.recalculatePermissions();
             }
@@ -137,9 +138,23 @@ public final class PermissionsManager {
     public void removeClanPlayerPermissions(@Nullable ClanPlayer cp) {
         if (cp != null && cp.getClan() != null && cp.toPlayer() != null) {
             Player player = cp.toPlayer();
-            if (player != null && permissions.containsKey(cp.getClan().getTag()) && permAttaches.containsKey(player)) {
-                permAttaches.get(player).remove();
-                permAttaches.remove(player);
+            if (player != null && permissions.containsKey(cp.getClan().getTag())) {
+                releaseAttachment(player.getUniqueId());
+            }
+        }
+    }
+
+    /**
+     * Drops the clan permission attachment held for a player, if any. Called on quit
+     * regardless of clan state, so attachments can never outlive the player's session.
+     */
+    public void releaseAttachment(@NotNull UUID uuid) {
+        PermissionAttachment attachment = permAttaches.remove(uuid);
+        if (attachment != null) {
+            try {
+                attachment.remove();
+            } catch (IllegalArgumentException ignored) {
+                // already removed by the server when the player left
             }
         }
     }

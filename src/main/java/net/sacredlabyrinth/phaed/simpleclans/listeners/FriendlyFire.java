@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,6 +26,11 @@ public class FriendlyFire extends SCListener {
 
     public FriendlyFire(@NotNull SimpleClans plugin) {
         super(plugin);
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        warned.remove(event.getPlayer().getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)

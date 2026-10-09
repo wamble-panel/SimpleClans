@@ -179,7 +179,7 @@ public class ProtectionManager {
         if (war == null) {
             return;
         }
-        wars.remove(war);
+        cancel(wars.remove(war));
         Clan clan1 = war.getClans().get(0);
         Clan clan2 = war.getClans().get(1);
         clan1.removeWarringClan(clan2);
@@ -187,6 +187,28 @@ public class ProtectionManager {
 
         WarEndEvent event = new WarEndEvent(war, reason);
         Bukkit.getPluginManager().callEvent(event);
+    }
+
+    /**
+     * Forgets every war involving a clan that is being disbanded, cancelling their
+     * expiration tasks. Otherwise the war (and both Clan objects) would stay in memory
+     * forever, and a stale timeout could later end a new war between the same clans.
+     */
+    public void forgetWars(@NotNull Clan clan) {
+        Iterator<Map.Entry<War, BukkitTask>> it = wars.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<War, BukkitTask> entry = it.next();
+            if (entry.getKey().getClans().contains(clan)) {
+                cancel(entry.getValue());
+                it.remove();
+            }
+        }
+    }
+
+    private static void cancel(@Nullable BukkitTask task) {
+        if (task != null && !task.isCancelled()) {
+            task.cancel();
+        }
     }
 
     public @Nullable War getWar(@Nullable Clan clan1, @Nullable Clan clan2) {

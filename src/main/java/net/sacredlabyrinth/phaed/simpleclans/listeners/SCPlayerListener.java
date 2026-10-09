@@ -119,6 +119,11 @@ public class SCPlayerListener extends SCListener {
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
+        // Release per-player state unconditionally (even in blacklisted worlds or after a
+        // ban cleared the clan), so nothing keeps the logged-out player in memory.
+        plugin.getPermissionsManager().releaseAttachment(event.getPlayer().getUniqueId());
+        plugin.getStorageManager().removeChatBlock(event.getPlayer().getName());
+
         ClanPlayer cp = plugin.getClanManager().getClanPlayer(event.getPlayer());
         if (cp != null) {
             Clan clan = Objects.requireNonNull(cp.getClan());
@@ -135,8 +140,6 @@ public class SCPlayerListener extends SCListener {
             return;
         }
 
-
-        plugin.getPermissionsManager().removeClanPlayerPermissions(cp);
         plugin.getClanManager().updateLastSeen(event.getPlayer());
         plugin.getRequestManager().endPendingRequest(event.getPlayer().getName());
     }

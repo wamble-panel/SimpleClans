@@ -22,6 +22,8 @@ import static net.sacredlabyrinth.phaed.simpleclans.managers.SettingsManager.Con
 public class InventoryDrawer {
     private static final SimpleClans plugin = SimpleClans.getInstance();
     private static final ConcurrentHashMap<UUID, SCFrame> OPENING = new ConcurrentHashMap<>();
+    private static final int LEGACY_TITLE_LIMIT = 32;
+    private static final boolean LONG_TITLES = supportsLongTitles();
 
     private InventoryDrawer() {
     }
@@ -40,24 +42,37 @@ public class InventoryDrawer {
         if (event.isCancelled()) {
             return;
 	}
-	OPENING.put(uuid, frame);
+        OPENING.put(uuid, frame);
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-	    Inventory inventory = prepareInventory(frame);
+            Inventory inventory;
+            try {
+                inventory = prepareInventory(frame);
+            } catch (RuntimeException ex) {
+                // Without this, the stale OPENING entry would make every later open() of this
+                // frame (refresh, paging, Back) silently do nothing.
+                OPENING.remove(uuid, frame);
+                plugin.getLogger().log(Level.SEVERE, "Error building GUI " + frame.getClass().getSimpleName(), ex);
+                return;
+            }
 
             if (!frame.equals(OPENING.get(uuid))) {
                 return;
             }
             Bukkit.getScheduler().runTask(plugin, () -> {
-                frame.getViewer().openInventory(inventory);
+                OPENING.remove(uuid, frame);
+                Player viewer = frame.getViewer();
+                if (!viewer.isOnline()) {
+                    return;
+                }
+                viewer.openInventory(inventory);
                 InventoryController.register(frame);
-                OPENING.remove(uuid);
             });
         });
     }
 
     @NotNull
     private static Inventory prepareInventory(@NotNull SCFrame frame) {
-        Inventory inventory = Bukkit.createInventory(frame.getViewer(), frame.getSize(), frame.getTitle());
+        Inventory inventory = Bukkit.createInventory(frame.getViewer(), frame.getSize(), fitTitle(frame.getTitle()));
         long start = System.currentTimeMillis();
         setComponents(inventory, frame);
 
@@ -70,12 +85,29 @@ public class InventoryDrawer {
     }
 
     /**
-     *
-     * @deprecated use {@link InventoryDrawer#open(SCFrame)}
+     * Servers before 1.14 reject inventory titles longer than 32 characters (colour
+     * codes included), which crashes the menu. Newer servers get the full title.
      */
-    @Deprecated
-    public static void update(@NotNull SCFrame frame) {
-        open(frame);
+    @NotNull
+    private static String fitTitle(@NotNull String title) {
+        if (LONG_TITLES || title.length() <= LEGACY_TITLE_LIMIT) {
+            return title;
+        }
+        String cut = title.substring(0, LEGACY_TITLE_LIMIT);
+        // Don't leave a dangling colour-code prefix at the end.
+        return cut.endsWith("§") ? cut.substring(0, cut.length() - 1) : cut;
+    }
+
+    private static boolean supportsLongTitles() {
+        try {
+            // e.g. "1.16.5-R0.1-SNAPSHOT", or year-based versions like "26.2-R0.1-SNAPSHOT"
+            String[] parts = Bukkit.getBukkitVersion().split("-")[0].split("\\.");
+            int major = Integer.parseInt(parts[0]);
+            int minor = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+            return major > 1 || minor >= 14;
+        } catch (RuntimeException ex) {
+            return true;
+        }
     }
 
     private static void setComponents(@NotNull Inventory inventory, @NotNull SCFrame frame) {
@@ -122,11 +154,13 @@ public class InventoryDrawer {
     }
 
     private static void runHelpCommand(@NotNull Player player) {
-        Bukkit.getScheduler().runTask(plugin, () -> plugin.getServer().getConsoleSender().sendMessage(lang("gui.not.supported")));
-        SettingsManager settingsManager = plugin.getSettingsManager();
-        settingsManager.set(ENABLE_GUI, false);
-        String commandClan = settingsManager.getString(COMMANDS_CLAN);
-        player.performCommand(commandClan);
+        // Called from the async frame builder; config writes and commands must run on the main thread.
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            plugin.getServer().getConsoleSender().sendMessage(lang("gui.not.supported"));
+            SettingsManager settingsManager = plugin.getSettingsManager();
+            settingsManager.set(ENABLE_GUI, false);
+            player.performCommand(settingsManager.getString(COMMANDS_CLAN));
+        });
     }
 
     private static void checkLorePermission(@NotNull SCFrame frame, @NotNull SCComponent component) {

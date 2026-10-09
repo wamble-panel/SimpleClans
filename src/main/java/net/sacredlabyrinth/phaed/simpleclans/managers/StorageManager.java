@@ -82,6 +82,14 @@ public final class StorageManager {
     }
 
     /**
+     * Discards a player's pending chat lines (e.g. the rest of a long leaderboard) so they
+     * are not kept in memory after the player leaves.
+     */
+    public void removeChatBlock(@NotNull String playerName) {
+        chatBlocks.remove(playerName);
+    }
+
+    /**
      * Initiates the db
      */
     public void initiateDB() {

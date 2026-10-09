@@ -44,6 +44,9 @@ public class SCConversation extends Conversation {
         }
 
         conversations.put(uniqueId, this);
+        // Drop the entry once the conversation ends (completed, cancelled, timed out, or the
+        // player logged out), otherwise the map would keep the Player alive forever.
+        addConversationAbandonedListener(e -> conversations.remove(uniqueId, this));
         super.begin();
     }
 
