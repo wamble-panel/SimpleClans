@@ -239,20 +239,6 @@ public final class Helper {
     }
 
     /**
-     * Converts string array to {@literal HashSet<String>}, remove empty strings
-     *
-     * @param values
-     * @return
-     */
-    @Deprecated
-    public static Set<String> fromArrayToSet(String... values) {
-        HashSet<String> results = new HashSet<>();
-        Collections.addAll(results, values);
-        results.remove("");
-        return results;
-    }
-
-    /**
      * Converts  {@literal ArrayList<String>} to string array
      *
      * @param list
@@ -317,19 +303,6 @@ public final class Helper {
         }
 
         return out;
-    }
-
-    /**
-     * Escapes single quotes
-     *
-     * @param str
-     * @return
-     */
-    public static String escapeQuotes(@Nullable String str) {
-        if (str == null) {
-            return "";
-        }
-        return str.replace("'", "''");
     }
 
     /**

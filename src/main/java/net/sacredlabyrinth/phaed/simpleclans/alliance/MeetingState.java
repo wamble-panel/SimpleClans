@@ -57,11 +57,6 @@ public class MeetingState {
         this.endTime = endTime;
     }
 
-    @Nullable
-    public String getHostTag() {
-        return hostTag;
-    }
-
     public void setHostTag(@Nullable String hostTag) {
         this.hostTag = hostTag;
     }

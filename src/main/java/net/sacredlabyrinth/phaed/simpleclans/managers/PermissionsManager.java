@@ -187,16 +187,6 @@ public final class PermissionsManager {
     }
 
     /**
-     * Charge a player some money
-     *
-     * @deprecated use {@link PermissionsManager#chargePlayer(OfflinePlayer, double)} instead
-     */
-    @Deprecated
-    public boolean playerChargeMoney(OfflinePlayer player, double money) {
-        return chargePlayer(player, money);
-    }
-
-    /**
      * Charges the specified amount of money from the player's account.
      * <p>
      * As the {@link EconomyTransactionEvent.Cause} is not passed, this method won't fire the {@link EconomyTransactionEvent}.
@@ -246,16 +236,6 @@ public final class PermissionsManager {
         }
 
         return true;
-    }
-
-    /**
-     * Grants a player some money
-     *
-     * @deprecated use {@link PermissionsManager#grantPlayer(OfflinePlayer, double)} instead
-     */
-    @Deprecated
-    public boolean playerGrantMoney(OfflinePlayer player, double money) {
-        return grantPlayer(player, money);
     }
 
     /**

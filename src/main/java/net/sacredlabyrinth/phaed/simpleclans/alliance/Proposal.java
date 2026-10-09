@@ -110,11 +110,6 @@ public class Proposal {
         this.status = status;
     }
 
-    @NotNull
-    public Map<String, Boolean> getVotes() {
-        return votes;
-    }
-
     /**
      * Records or changes a clan's vote.
      *

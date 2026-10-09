@@ -141,7 +141,6 @@ commands:
     clan: clan
     accept: accept
     deny: deny
-    global: global
     clan_chat: "."
     force-priority: true
 economy:
@@ -253,7 +252,6 @@ clanchat:
     member-color: '7'
     listener-priority: LOW
 request:
-    message-color: b
     ask-frequency-secs: 60
     max-asks-per-request: 1440
 bb:

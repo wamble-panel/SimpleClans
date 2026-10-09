@@ -22,19 +22,8 @@ public class ChatBlock {
     private final ArrayList<Integer> columnSizes = new ArrayList<>();
     private final ArrayList<String> columnAlignments = new ArrayList<>();
     private final LinkedList<String[]> rows = new LinkedList<>();
-    private String color = "";
     private boolean cropRight = true;
     private boolean padRight = true;
-
-    @Deprecated
-    public void setCropRight(boolean cropRight) {
-        this.cropRight = cropRight;
-    }
-
-    @Deprecated
-    public void setPadRight(boolean padRight) {
-        this.padRight = padRight;
-    }
 
     public void setAlignment(String... columnAlignment) {
         columnAlignments.addAll(Arrays.asList(columnAlignment));
@@ -44,24 +33,6 @@ public class ChatBlock {
         for (boolean flex : columnFlex) {
             columnFlexes.add(flex);
         }
-    }
-
-    @Deprecated
-    public void setColumnSizes(String prefix, double... columnPercentages) {
-        int ll = LINE_LENGTH;
-
-        if (prefix != null) {
-            ll = LINE_LENGTH - (int) msgLength(prefix);
-        }
-
-        for (double percentage : columnPercentages) {
-            columnSizes.add((int) Math.floor((percentage / 100) * ll));
-        }
-    }
-
-    @Deprecated
-    public boolean hasContent() {
-        return !rows.isEmpty();
     }
 
     public void addRow(String... contents) {
@@ -244,9 +215,6 @@ public class ChatBlock {
             if (cropRight) {
                 msg = cropRightToFit(msg, LINE_LENGTH);
             }
-            if (color.length() > 0) {
-                msg = color + msg;
-            }
 
             messages.add(msg);
 
@@ -275,11 +243,6 @@ public class ChatBlock {
         }
 
         return (int) maxWidth;
-    }
-
-    @Deprecated
-    public static String centerInLine(String msg) {
-        return centerInLineOf(msg, LINE_LENGTH);
     }
 
     private static String centerInLineOf(String msg, double lineLength) {
@@ -422,105 +385,6 @@ public class ChatBlock {
     }
 
     /**
-     * Cuts the message apart into whole words short enough to fit on one line
-     */
-    private static String[] wordWrap(String msg) {
-        // Split each word apart
-
-        ArrayList<String> split = new ArrayList<>(Arrays.asList(msg.split(" ")));
-
-        // Create an array list for the output
-
-        ArrayList<String> out = new ArrayList<>();
-
-        // While i is less than the length of the array of words
-
-        while (!split.isEmpty()) {
-            int len = 0;
-
-            // Create an array list to hold individual words
-
-            ArrayList<String> words = new ArrayList<>();
-
-            // go through the split array containing all the words, and adding them to the words array
-            // until reaching the point where their width no longer fits on a chat line
-
-            while (!split.isEmpty() && split.get(0) != null && len <= LINE_LENGTH) {
-                double wordLength = msgLength(split.get(0)) + 4;
-
-                // If a word is too long for a line
-
-                if (wordLength > LINE_LENGTH) {
-                    String[] tempArray = wordCut(len, split.remove(0));
-                    words.add(tempArray[0]);
-                    split.add(tempArray[1]);
-                }
-
-                // If the word is not too long to fit
-
-                len += wordLength;
-
-                if (len < LINE_LENGTH) {
-                    words.add(split.remove(0));
-                }
-            }
-
-            // Merge the words into a sentence (that now fits into a single chat line) and add them to the output array.
-
-            String merged = combineSplit(words.toArray(new String[0]));
-            out.add(merged);
-        }
-
-        // Convert to an array and return
-
-        return out.toArray(new String[0]);
-    }
-
-    private static String combineSplit(String[] string) {
-        StringBuilder builder = new StringBuilder();
-        for (String aString : string) {
-            builder.append(aString);
-            builder.append(" ");
-        }
-        builder.deleteCharAt(builder.length() - " ".length());
-
-        return builder.toString();
-    }
-
-    /**
-     * Cuts apart a word that is too long to fit on one line
-     */
-    private static String[] wordCut(int lengthBefore, String str) {
-        int length = lengthBefore;
-
-        // Loop through all the characters, skipping any color characters and their following color codes
-
-        String[] output = new String[2];
-        int x = 0;
-        while (length < LINE_LENGTH && x < str.length()) {
-            int len = charLength(str.charAt(x));
-            if (len > 0) {
-                length += len;
-            } else {
-                x++;
-            }
-            x++;
-        }
-        if (x > str.length()) {
-            x = str.length();
-        }
-
-        // Add the substring to the output after cutting it
-
-        output[0] = str.substring(0, x);
-
-        // Add the last of the string to the output.
-
-        output[1] = str.substring(x);
-        return output;
-    }
-
-    /**
      * Outputs a single line out, crops overflow
      *
      * @param receiver the receiver
@@ -565,11 +429,6 @@ public class ChatBlock {
         sendMessageKey(clanPlayer.toPlayer(), key, args);
     }
 
-    @Deprecated
-    public void startColor(String color) {
-        this.color = color;
-    }
-
     /**
      * Sends a blank line
      *
@@ -581,19 +440,6 @@ public class ChatBlock {
         }
 
         receiver.sendMessage(" ");
-    }
-
-    /**
-     * Colors each line
-     */
-    @Deprecated
-    public static String[] say(String message) {
-        return colorize(wordWrap(message));
-    }
-
-    @Deprecated
-    public static String[] getColorizedMessage(String msg) {
-        return colorize(wordWrap(msg));
     }
 
     private static String[] colorize(String[] message) {

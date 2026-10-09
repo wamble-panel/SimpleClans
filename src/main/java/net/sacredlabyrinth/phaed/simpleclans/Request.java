@@ -46,24 +46,10 @@ public final class Request {
     }
 
     /**
-     * @param type the type to set
-     */
-    public void setType(ClanRequest type) {
-        this.type = type;
-    }
-
-    /**
      * @return the acceptors
      */
     public List<ClanPlayer> getAcceptors() {
         return Collections.unmodifiableList(acceptors);
-    }
-
-    /**
-     * @param acceptors the acceptors to set
-     */
-    public void setAcceptors(List<ClanPlayer> acceptors) {
-        this.acceptors = acceptors;
     }
 
     /**
@@ -88,24 +74,10 @@ public final class Request {
     }
 
     /**
-     * @param msg the msg to set
-     */
-    public void setMsg(String msg) {
-        this.msg = msg;
-    }
-
-    /**
      * @return the target
      */
     public String getTarget() {
         return target;
-    }
-
-    /**
-     * @param target the target to set
-     */
-    public void setTarget(String target) {
-        this.target = target;
     }
 
     public void vote(String playerName, VoteResult vote) {
@@ -165,13 +137,6 @@ public final class Request {
      */
     public ClanPlayer getRequester() {
         return requester;
-    }
-
-    /**
-     * @param requester the requester to set
-     */
-    public void setRequester(ClanPlayer requester) {
-        this.requester = requester;
     }
 
     public void incrementAskCount() {

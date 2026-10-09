@@ -331,8 +331,6 @@ public final class SettingsManager {
         TAG_SEPARATOR_COLOR("tag.separator.color", "8"),
         TAG_SEPARATOR_LEADER_COLOR("tag.separator.leader-color", "4"),
         TAG_SEPARATOR_CHAR("tag.separator.char", " ."),
-        @Deprecated
-        TAG_SEPARATOR_char("tag.separator.char", " ."),
         /*
         ================
         > War and Protection Settings
@@ -380,7 +378,6 @@ public final class SettingsManager {
         COMMANDS_CLAN("commands.clan", "clan"),
         COMMANDS_ACCEPT("commands.accept", "accept"),
         COMMANDS_DENY("commands.deny", "deny"),
-        COMMANDS_GLOBAL("commands.global", "global"),
         COMMANDS_CLAN_CHAT("commands.clan_chat", "."),
         COMMANDS_FORCE_PRIORITY("commands.force-priority", true),
         /*
@@ -513,7 +510,6 @@ public final class SettingsManager {
         ================
          *
          */
-        REQUEST_MESSAGE_COLOR("request.message-color", "b"),
         REQUEST_FREQUENCY("request.ask-frequency-secs", 60),
         REQUEST_MAX("request.max-asks-per-request", 1440),
         /*

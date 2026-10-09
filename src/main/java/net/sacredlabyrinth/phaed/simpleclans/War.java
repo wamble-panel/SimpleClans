@@ -19,14 +19,6 @@ public class War {
         return new ArrayList<>(clans.keySet());
     }
 
-    public int getTotalCasualties() {
-        return clans.values().stream().mapToInt(value -> value).sum();
-    }
-
-    public int getCasualties(@NotNull Clan clan) {
-        return clans.getOrDefault(clan, 0);
-    }
-
     public void increaseCasualties(@NotNull Clan clan) {
         clans.computeIfPresent(clan, (c, i) -> i + 1);
     }

@@ -739,34 +739,6 @@ public final class StorageManager {
     }
 
     /**
-     * Update a clan to the database asynchronously
-     *
-     */
-    @Deprecated
-    public void updateClanAsync(final Clan clan) {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                updateClan(clan);
-            }
-        }.runTaskAsynchronously(plugin);
-    }
-
-    /**
-     * Change the name of a player in the database asynchronously
-     *
-     * @param cp to update
-     */
-    public void updatePlayerNameAsync(final @NotNull ClanPlayer cp) {
-    	new BukkitRunnable() {
-			@Override
-			public void run() {
-                updatePlayerName(cp);
-			}
-		}.runTaskAsynchronously(plugin);
-    }
-
-    /**
      * Change the name of a player in the database
      *
      * @param cp to update
@@ -888,20 +860,6 @@ public final class StorageManager {
         } catch (SQLException ex) {
             plugin.getLogger().log(Level.SEVERE, "Error inserting ClanPlayer " + cp.getName(), ex);
         }
-    }
-
-    /**
-     * Update a clan player to the database asynchronously
-     *
-     */
-    @Deprecated
-    public void updateClanPlayerAsync(final ClanPlayer cp) {
-    	new BukkitRunnable() {
-			@Override
-			public void run() {
-                updateClanPlayer(cp);
-			}
-		}.runTaskAsynchronously(plugin);
     }
 
     /**

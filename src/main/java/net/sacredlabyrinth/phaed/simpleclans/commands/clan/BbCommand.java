@@ -5,7 +5,6 @@ import co.aikar.commands.annotation.*;
 import net.sacredlabyrinth.phaed.simpleclans.ChatBlock;
 import net.sacredlabyrinth.phaed.simpleclans.Clan;
 import net.sacredlabyrinth.phaed.simpleclans.managers.ClanManager;
-import net.sacredlabyrinth.phaed.simpleclans.managers.SettingsManager;
 import net.sacredlabyrinth.phaed.simpleclans.managers.StorageManager;
 import org.bukkit.entity.Player;
 
@@ -22,8 +21,6 @@ public class BbCommand extends BaseCommand {
     private ClanManager cm;
     @Dependency
     private StorageManager storage;
-    @Dependency
-    private SettingsManager settings;
 
     @Subcommand("%bb")
     @CommandPermission("simpleclans.member.bb")
