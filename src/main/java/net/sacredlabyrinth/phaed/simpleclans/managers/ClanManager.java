@@ -1039,6 +1039,35 @@ public final class ClanManager {
     }
 
     /**
+     * Charges the player for setting their clan's warp, if enabled in the config.
+     *
+     * @return true if the player may proceed (paid, or charging is off/no economy)
+     */
+    public boolean purchaseWarpSet(Player player) {
+        if (!plugin.getSettingsManager().is(ECONOMY_PURCHASE_WARP_SET)) {
+            return true;
+        }
+
+        double price = plugin.getSettingsManager().getDouble(ECONOMY_WARP_SET_PRICE);
+
+        if (plugin.getPermissionsManager().hasEconomy()) {
+            if (plugin.getPermissionsManager().playerHasMoney(player, price)) {
+                // The charge can still fail (economy error, or another plugin cancelled the transaction).
+                if (!plugin.getPermissionsManager().chargePlayer(player, price, Cause.CLAN_WARP_SET)) {
+                    player.sendMessage(RED + lang("not.sufficient.money", player, CurrencyFormat.format(price)));
+                    return false;
+                }
+                player.sendMessage(RED + MessageFormat.format(lang("account.has.been.debited", player), CurrencyFormat.format(price)));
+            } else {
+                player.sendMessage(RED + lang("not.sufficient.money", player, CurrencyFormat.format(price)));
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Purchase Reset Kdr
      */
     public boolean purchaseResetKdr(Player player) {

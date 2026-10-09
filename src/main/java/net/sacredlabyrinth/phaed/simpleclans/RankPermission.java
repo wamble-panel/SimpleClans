@@ -41,7 +41,9 @@ public enum RankPermission {
 	DESCRIPTION("simpleclans.leader.description", PermissionLevel.LEADER),
 	MOSTKILLED("simpleclans.mod.mostkilled", PermissionLevel.TRUSTED),
 	FRIENDLYFIRE("simpleclans.leader.ff", PermissionLevel.LEADER),
-	SETBANNER("simpleclans.leader.setbanner", PermissionLevel.LEADER);
+	SETBANNER("simpleclans.leader.setbanner", PermissionLevel.LEADER),
+	WARP_SET("simpleclans.leader.warp", PermissionLevel.LEADER),
+	WARP_TOGGLE("simpleclans.leader.warp", PermissionLevel.LEADER);
 
 	private final String bukkitPermission;
 	private final PermissionLevel permissionLevel;

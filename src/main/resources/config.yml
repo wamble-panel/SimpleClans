@@ -155,6 +155,9 @@ economy:
     purchase-home-teleport: false
     home-teleport-set-price: 5.0
     purchase-home-teleport-set: false
+    # Cost (from the player's own balance) to set or move the clan warp.
+    warp-set-price: 10000.0
+    purchase-warp-set: true
     home-regroup-price: 5.0
     purchase-home-regroup: false
     discord-creation-price: 1000.0
@@ -176,6 +179,12 @@ economy:
     charge-upkeep-only-if-member-fee-enabled: true
     bank-log:
         enable: true
+warps:
+    # Master switch for /clan warp. Each clan can set one public warp that anyone can visit while it is toggled on.
+    enabled: true
+    # Only allow setting a warp inside land the clan owns (needs a supported land/claims plugin).
+    # Recommended on survival servers so a warp can't be planted inside someone else's base.
+    set-only-in-own-land: false
 kill-weights:
     rival: 2.0
     civilian: 0.0

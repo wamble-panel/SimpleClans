@@ -13,14 +13,28 @@ public class TeleportState {
     private final Location destination;
     private int counter;
     private final String clanName;
+    private final String arrivalMessageKey;
     private boolean processing;
 
     public TeleportState(Player player, Location destination, String clanName, int counter) {
+        this(player, destination, clanName, counter, "now.at.homebase");
+    }
+
+    public TeleportState(Player player, Location destination, String clanName, int counter,
+                         String arrivalMessageKey) {
         this.offlinePlayer = player;
         this.destination = destination;
         this.origin = player.getLocation();
         this.clanName = clanName;
         this.counter = counter;
+        this.arrivalMessageKey = arrivalMessageKey;
+    }
+
+    /**
+     * @return the lang key sent to the player on arrival; takes the clan name as {0}
+     */
+    public String getArrivalMessageKey() {
+        return arrivalMessageKey;
     }
 
 

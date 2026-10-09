@@ -29,6 +29,7 @@ import static org.bukkit.ChatColor.RED;
  * Class responsible for managing teleports and its queue
  */
 public final class TeleportManager {
+    private static final String HOME_ARRIVAL_KEY = "now.at.homebase";
     private final SimpleClans plugin;
     private final HashMap<String, TeleportState> waitingPlayers = new HashMap<>();
 
@@ -45,13 +46,26 @@ public final class TeleportManager {
      * @param clanName    the Clan name
      */
     public void addPlayer(Player player, Location destination, String clanName) {
+        addPlayer(player, destination, clanName, HOME_ARRIVAL_KEY);
+    }
+
+    /**
+     * Add player to teleport waiting queue with a custom arrival message.
+     *
+     * @param player            the Player
+     * @param destination       the destination
+     * @param clanName          the Clan name, passed as {0} to the arrival message
+     * @param arrivalMessageKey the lang key sent when the player arrives
+     */
+    public void addPlayer(Player player, Location destination, String clanName, String arrivalMessageKey) {
         PermissionsManager pm = plugin.getPermissionsManager();
 
         int secs = SimpleClans.getInstance().getSettingsManager().getInt(CLAN_TELEPORT_DELAY);
         if (pm.has(player, "simpleclans.mod.bypass") || pm.has(player, "simpleclans.vip.teleport-delay")) {
             secs = 0;
         }
-        waitingPlayers.put(player.getUniqueId().toString(), new TeleportState(player, destination, clanName, secs));
+        waitingPlayers.put(player.getUniqueId().toString(),
+                new TeleportState(player, destination, clanName, secs, arrivalMessageKey));
 
         if (secs > 0) {
             ChatBlock.sendMessage(player, AQUA + lang("waiting.for.teleport.stand.still.for.0.seconds", player, secs));
@@ -80,9 +94,14 @@ public final class TeleportManager {
     }
 
     public void teleportToHome(@NotNull Player player, @NotNull Location destination, @NotNull String clanName) {
+        teleportTo(player, destination, clanName, HOME_ARRIVAL_KEY);
+    }
+
+    private void teleportTo(@NotNull Player player, @NotNull Location destination, @NotNull String clanName,
+                            @NotNull String arrivalMessageKey) {
         PaperLib.teleportAsync(player, getSafe(destination), PlayerTeleportEvent.TeleportCause.COMMAND).thenAccept(result -> {
             if (result) {
-                ChatBlock.sendMessage(player, AQUA + lang("now.at.homebase", player, clanName));
+                ChatBlock.sendMessage(player, AQUA + lang(arrivalMessageKey, player, clanName));
             } else {
                 plugin.getLogger().log(Level.WARNING, "An error occurred while teleporting a player");
             }
@@ -197,10 +216,14 @@ public final class TeleportManager {
         }
         Location loc = state.getDestination();
         sendTeleportBlocks(player, loc);
-        dropItems(player);
-        // Center the player on the block; getSafe() receives a clone and does not mutate loc.
-        Location destination = loc.clone().add(.5, .5, .5);
-        teleportToHome(player, destination, state.getClanName());
+        Location destination = loc;
+        if (HOME_ARRIVAL_KEY.equals(state.getArrivalMessageKey())) {
+            // Item filtering and block-centering only apply to home/regroup teleports.
+            dropItems(player);
+            // Center the player on the block; getSafe() receives a clone and does not mutate loc.
+            destination = loc.clone().add(.5, .5, .5);
+        }
+        teleportTo(player, destination, state.getClanName(), state.getArrivalMessageKey());
     }
 
     @SuppressWarnings("deprecation")

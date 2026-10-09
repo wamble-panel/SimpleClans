@@ -1630,6 +1630,59 @@ public class Clan implements Serializable, Comparable<Clan> {
     }
 
     /**
+     * Sets this clan's public warp, or clears it when {@code warp} is null. A newly set
+     * warp starts enabled; clearing it also disables it.
+     */
+    public void setWarpLocation(@Nullable Location warp) {
+        flags.put("warpX", warp != null ? warp.getX() : 0);
+        flags.put("warpY", warp != null ? warp.getY() : 0);
+        flags.put("warpZ", warp != null ? warp.getZ() : 0);
+        flags.put("warpPitch", warp != null ? warp.getPitch() : 0);
+        flags.put("warpYaw", warp != null ? warp.getYaw() : 0);
+        flags.put("warpWorld", warp != null && warp.getWorld() != null ? warp.getWorld().getName() : "");
+        flags.put("warpEnabled", warp != null);
+
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
+    /**
+     * @return this clan's warp, or null if none is set or its world is not loaded
+     */
+    public @Nullable Location getWarpLocation() {
+        String warpWorld = flags.getString("warpWorld");
+        if (warpWorld == null || warpWorld.isEmpty()) {
+            return null;
+        }
+        World world = Bukkit.getWorld(warpWorld);
+        if (world == null) {
+            return null;
+        }
+        return new Location(world,
+                flags.getNumber("warpX").doubleValue(),
+                flags.getNumber("warpY").doubleValue(),
+                flags.getNumber("warpZ").doubleValue(),
+                flags.getNumber("warpYaw").floatValue(),
+                flags.getNumber("warpPitch").floatValue());
+    }
+
+    public boolean isWarpEnabled() {
+        return flags.getBoolean("warpEnabled", false);
+    }
+
+    public void setWarpEnabled(boolean enabled) {
+        flags.put("warpEnabled", enabled);
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
+    /**
+     * @return true if this clan has a warp that visitors can currently use
+     */
+    @Placeholder("has_active_warp")
+    public boolean hasActiveWarp() {
+        return isWarpEnabled() && getWarpLocation() != null;
+    }
+
+    /**
      * Sets this clan's alliance HQ for a given alliance. Stored in the clan flags blob,
      * keyed per alliance id so NATO and SCO HQs never collide. The HQ persists
      * independently of alliance membership (a clan must set its HQ before it can join).

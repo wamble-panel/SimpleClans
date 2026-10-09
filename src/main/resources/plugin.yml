@@ -56,6 +56,10 @@ permissions:
     description: Can bypass pvp in wars
   simpleclans.anyone.list:
     description: Can list simpleclans
+  simpleclans.anyone.warp:
+    description: Can open the clan warp list and visit active clan warps
+  simpleclans.leader.warp:
+    description: Can set, remove and toggle the clan warp
   simpleclans.anyone.list.balance:
     description: Can list clans by balance
   simpleclans.anyone.profile:
@@ -264,6 +268,7 @@ permissions:
     default: true
     children:
       simpleclans.anyone.list: true
+      simpleclans.anyone.warp: true
       simpleclans.anyone.profile: true
       simpleclans.anyone.roster: true
       simpleclans.anyone.lookup: true
@@ -338,6 +343,7 @@ permissions:
       simpleclans.leader.settrust: true
       simpleclans.leader.war: true
       simpleclans.leader.home-set: true
+      simpleclans.leader.warp: true
       simpleclans.leader.regroup.home: true
       simpleclans.leader.regroup.me: true
       simpleclans.leader.setrank: true
