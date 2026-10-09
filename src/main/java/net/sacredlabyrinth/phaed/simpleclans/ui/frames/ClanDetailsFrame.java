@@ -100,8 +100,8 @@ public class ClanDetailsFrame extends SCFrame {
 		String allyStatus = allyEnabled ? joined : notJoined;
 
 		String chatCommand = settings.is(CLANCHAT_TAG_BASED) ? clan.getTag() : settings.getString(COMMANDS_CLAN_CHAT);
-		String joinArg = lang("join", getViewer());
-		String leaveArg = lang("leave", getViewer());
+		String joinArg = lang("join.command", getViewer());
+		String leaveArg = lang("leave.command", getViewer());
 		return new SCComponentImpl(lang("gui.clandetails.chat.title", getViewer()),
 				Arrays.asList(
 						lang("gui.clandetails.chat.clan.chat.lore", getViewer(), chatCommand),
@@ -127,7 +127,7 @@ public class ClanDetailsFrame extends SCFrame {
 	private void addFee() {
 		String status = clan.isMemberFeeEnabled() ? lang("fee.enabled", getViewer()) : lang("fee.disabled", getViewer());
 		SCComponent fee = new SCComponentImpl(lang("gui.clandetails.fee.title", getViewer()),
-				Arrays.asList(lang("gui.clandetails.fee.value.lore", getViewer(), clan.getMemberFee()),
+				Arrays.asList(lang("gui.clandetails.fee.value.lore", getViewer(), CurrencyFormat.format(clan.getMemberFee())),
 						lang("gui.clandetails.fee.status.lore", getViewer(), status),
 						lang("gui.clandetails.fee.toggle.lore", getViewer())),
 				XMaterial.GOLD_NUGGET, 41);
@@ -143,7 +143,7 @@ public class ClanDetailsFrame extends SCFrame {
 				50);
 		disband.setListener(ClickType.DROP, () -> InventoryController.runSubcommand(getViewer(), "disband", false));
 		disband.setPermission(ClickType.DROP, "simpleclans.leader.disband");
-		disband.setConfirmationRequired(ClickType.LEFT);
+		disband.setConfirmationRequired(ClickType.DROP);
 		add(disband);
 	}
 
@@ -196,6 +196,7 @@ public class ClanDetailsFrame extends SCFrame {
 		bank.setVerifiedOnly(ClickType.RIGHT);
 		bank.setListener(ClickType.RIGHT, () -> InventoryController.runSubcommand(getViewer(), "toggle deposit", true));
 		bank.setPermission(ClickType.RIGHT, "simpleclans.leader.deposit-toggle");
+		bank.setConfirmationRequired(ClickType.RIGHT);
 
 		add(bank);
 	}

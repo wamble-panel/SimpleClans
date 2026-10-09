@@ -31,7 +31,8 @@ public class CoordsFrame extends SCFrame {
 	public CoordsFrame(Player viewer, SCFrame parent, Clan subject) {
 		super(parent, viewer);
 		allMembers = VanishUtils.getNonVanished(getViewer(), subject);
-		allMembers.sort((cp1, cp2) -> Boolean.compare(cp1.isLeader(), cp2.isLeader()));
+		// Leaders first.
+		allMembers.sort((cp1, cp2) -> Boolean.compare(cp2.isLeader(), cp1.isLeader()));
 
 		paginator = new Paginator(getSize() - 9, allMembers);
 	}
@@ -51,14 +52,24 @@ public class CoordsFrame extends SCFrame {
 		int slot = 9;
 		for (int i = paginator.getMinIndex(); paginator.isValidIndex(i); i++) {
 			ClanPlayer cp = allMembers.get(i);
-			Location cpLoc = Objects.requireNonNull(cp.toPlayer()).getLocation();
-			int distance = (int) Math.ceil(cpLoc.toVector().distance(getViewer().getLocation().toVector()));
+			Player member = cp.toPlayer();
+			if (member == null) {
+				continue; // logged out since the menu was opened
+			}
+			Location cpLoc = member.getLocation();
+			Location viewerLoc = getViewer().getLocation();
+			String distance = Objects.equals(cpLoc.getWorld(), viewerLoc.getWorld())
+					? lang("gui.coords.player.lore.distance", getViewer(),
+					String.valueOf((int) Math.ceil(cpLoc.distance(viewerLoc))))
+					: lang("gui.coords.player.lore.other.world", getViewer());
+			String world = cpLoc.getWorld() != null ? cpLoc.getWorld().getName() : "?";
 
+			// Coordinates as strings so MessageFormat doesn't add thousands separators.
 			SCComponent c = new SCComponentImpl(lang("gui.playerdetails.player.title",getViewer(), cp.getName()),
-					Arrays.asList(lang("gui.coords.player.lore.distance",getViewer(), distance),
-							lang("gui.coords.player.lore.coords",getViewer(), cpLoc.getBlockX(),
-									cpLoc.getBlockY(), cpLoc.getBlockZ()),
-							lang("gui.coords.player.lore.world",getViewer(), Objects.requireNonNull(cpLoc.getWorld()).getName())),
+					Arrays.asList(distance,
+							lang("gui.coords.player.lore.coords",getViewer(), String.valueOf(cpLoc.getBlockX()),
+									String.valueOf(cpLoc.getBlockY()), String.valueOf(cpLoc.getBlockZ())),
+							lang("gui.coords.player.lore.world",getViewer(), world)),
 					XMaterial.PLAYER_HEAD, slot);
 			OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(cp.getUniqueId());
 			Components.setOwningPlayer(c.getItem(), offlinePlayer);

@@ -45,8 +45,8 @@ public class AllianceMembersFrame extends SCFrame {
 
     @Override
     public String getTitle() {
-        return type.getColoredSymbol() + " " + type.getDisplayName()
-                + ChatColor.DARK_GRAY + " (" + memberTags.size() + ")";
+        return lang("alliance.gui.members.title", getViewer(),
+                type.getColoredSymbol() + " " + type.getDisplayName(), String.valueOf(memberTags.size()));
     }
 
     @Override
@@ -75,6 +75,7 @@ public class AllianceMembersFrame extends SCFrame {
         }
 
         ClanManager cm = SimpleClans.getInstance().getClanManager();
+        Clan viewerClan = cm.getClanByPlayerUniqueId(getViewer().getUniqueId());
         int slot = 9;
         for (int i = paginator.getMinIndex(); paginator.isValidIndex(i); i++) {
             String tag = memberTags.get(i);
@@ -99,7 +100,9 @@ public class AllianceMembersFrame extends SCFrame {
             }
 
             SCComponent c = new SCComponentImpl(displayName, lore, icon, slot);
-            if (clan != null) {
+            // ClanDetailsFrame is the member management menu (bank, home, disband...), so only
+            // open it for the viewer's own clan; other clans' info is already in the lore.
+            if (clan != null && clan.equals(viewerClan)) {
                 final Clan finalClan = clan;
                 c.setListener(ClickType.LEFT,
                         () -> InventoryDrawer.open(new ClanDetailsFrame(this, getViewer(), finalClan)));

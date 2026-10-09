@@ -8,24 +8,27 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import static net.sacredlabyrinth.phaed.simpleclans.SimpleClans.lang;
 
 public class PermissionsFrame extends SCFrame {
 	private final Rank rank;
-	private final Paginator paginator;
-	private final String[] permissions;
+	// Re-read on every render: removing a permission reopens this same frame.
+	private final List<String> permissions = new ArrayList<>();
+	private final Paginator paginator = new Paginator(getSize() - 9, permissions);
 
 	public PermissionsFrame(SCFrame parent, Player viewer, Rank rank) {
 		super(parent, viewer);
 		this.rank = rank;
-		permissions = rank.getPermissions().toArray(new String[0]);
-		paginator = new Paginator(getSize() - 9, permissions.length);
 	}
 
 	@Override
 	public void createComponents() {
+		permissions.clear();
+		permissions.addAll(rank.getPermissions());
 		for (int slot = 0; slot < 9; slot++) {
 			if (slot == 2 || slot == 4 || slot == 6 || slot == 7)
 				continue;
@@ -46,7 +49,7 @@ public class PermissionsFrame extends SCFrame {
 		int slot = 9;
 		for (int i = paginator.getMinIndex(); paginator.isValidIndex(i); i++) {
 
-			String permission = permissions[i];
+			String permission = permissions.get(i);
 
 			SCComponent c = new SCComponentImpl(lang("gui.permissions.permission.title",getViewer(), permission),
 					Collections.singletonList(lang("gui.permissions.permission.lore",getViewer())), XMaterial.PAPER, slot);

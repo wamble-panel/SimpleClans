@@ -8,6 +8,7 @@ import net.sacredlabyrinth.phaed.simpleclans.ui.*;
 import net.sacredlabyrinth.phaed.simpleclans.utils.Paginator;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
+import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
@@ -54,12 +55,15 @@ public class AlliesFrame extends SCFrame {
 			Clan clan = plugin.getClanManager().getClan(allies.get(i));
 			if (clan == null)
 				continue;
+			ItemStack icon = clan.getBanner() != null ? clan.getBanner() : XMaterial.CYAN_BANNER.parseItem();
 			SCComponent c = new SCComponentImpl(
-					lang("gui.clanlist.clan.title",getViewer(), clan.getColorTag(), clan.getName()),
-					Collections.singletonList(lang("gui.allies.clan.lore",getViewer())), XMaterial.CYAN_BANNER, slot);
+					plugin.getAllianceManager().getSymbolPrefix(clan)
+							+ lang("gui.clanlist.clan.title",getViewer(), clan.getColorTag(), clan.getName()),
+					Collections.singletonList(lang("gui.allies.clan.lore",getViewer())), icon, slot);
 			c.setListener(ClickType.RIGHT, () -> InventoryController.runSubcommand(getViewer(),
 					"ally remove", false, clan.getTag()));
 			c.setPermission(ClickType.RIGHT, RankPermission.ALLY_REMOVE);
+			c.setConfirmationRequired(ClickType.RIGHT);
 			add(c);
 			slot++;
 		}

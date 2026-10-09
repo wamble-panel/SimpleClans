@@ -118,15 +118,21 @@ public class PlayerDetailsFrame extends SCFrame {
 
 	@Override
 	public int getSize() {
-		int size = 3;
-		if (isSameClan()) {
-			size = 6;
-		}
-		return size * 9;
+		// The management buttons sit on the 4th row (slots 28-34).
+		return (isSameClan() ? 4 : 3) * 9;
 	}
 
+	/**
+	 * Management buttons (kick, promote, ranks, trust) only make sense when the viewer is
+	 * in the subject's clan. This used to check the subject against their own clan, which
+	 * was always true, so the buttons showed for players of any clan.
+	 */
 	private boolean isSameClan() {
-		return clan != null && clan.isMember(subject.getUniqueId());
+		if (clan == null) {
+			return false;
+		}
+		Clan viewerClan = plugin.getClanManager().getClanByPlayerUniqueId(getViewer().getUniqueId());
+		return clan.equals(viewerClan);
 	}
 
 }

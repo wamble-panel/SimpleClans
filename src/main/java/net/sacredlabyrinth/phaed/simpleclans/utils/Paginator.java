@@ -102,7 +102,8 @@ public class Paginator {
 	 */
 	@SuppressWarnings("BooleanMethodIsAlwaysInverted")
 	public boolean hasNextPage() {
-		return !((sizePerPage * (currentPage + 1)) > getTotalElements());
+		// Strictly less: with exactly 45 items and 45 per page there is no second page.
+		return sizePerPage * (currentPage + 1) < getTotalElements();
 	}
 
 	/**

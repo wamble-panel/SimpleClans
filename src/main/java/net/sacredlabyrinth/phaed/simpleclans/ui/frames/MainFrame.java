@@ -2,6 +2,7 @@ package net.sacredlabyrinth.phaed.simpleclans.ui.frames;
 
 import com.cryptomorin.xseries.XMaterial;
 import net.sacredlabyrinth.phaed.simpleclans.SimpleClans;
+import net.sacredlabyrinth.phaed.simpleclans.alliance.AllianceType;
 import net.sacredlabyrinth.phaed.simpleclans.ui.*;
 import net.sacredlabyrinth.phaed.simpleclans.ui.frames.staff.StaffFrame;
 import net.sacredlabyrinth.phaed.simpleclans.utils.CurrencyFormat;
@@ -29,12 +30,43 @@ public class MainFrame extends SCFrame {
 		add(Components.getPlayerComponent(this, getViewer(), getViewer(), 0, false));
 		add(Components.getClanComponent(this, getViewer(),
 				plugin.getClanManager().getCreateClanPlayer(getViewer().getUniqueId()).getClan(), 1, true));
+		addWarps();
 		addLeaderboard();
 		addClanList();
 		addResetKdr();
 		addStaff();
 		addLanguageSelector();
 		addOtherCommands();
+		addAlliance(AllianceType.NATO, XMaterial.BLUE_BANNER, 12);
+		addAlliance(AllianceType.SCO, XMaterial.RED_BANNER, 14);
+
+		// Fill unused slots (e.g. staff/language buttons hidden) so the menu has no gaps.
+		for (int slot = 0; slot < getSize(); slot++) {
+			if (getComponent(slot) == null) {
+				add(Components.getPanelComponent(slot));
+			}
+		}
+	}
+
+	private void addWarps() {
+		if (!plugin.getSettingsManager().is(WARPS_ENABLED)) {
+			return;
+		}
+		SCComponent warps = new SCComponentImpl(lang("gui.main.warps.title", getViewer()),
+				Collections.singletonList(lang("gui.main.warps.lore", getViewer())), XMaterial.ENDER_PEARL, 2);
+		warps.setListener(ClickType.LEFT, () -> InventoryDrawer.open(new WarpsFrame(this, getViewer())));
+		warps.setPermission(ClickType.LEFT, "simpleclans.anyone.warp");
+		add(warps);
+	}
+
+	private void addAlliance(@NotNull AllianceType type, @NotNull XMaterial icon, int slot) {
+		int members = plugin.getAllianceManager().getAlliance(type).getSize();
+		SCComponent alliance = new SCComponentImpl(type.getColoredSymbol() + " " + type.getDisplayName(),
+				Collections.singletonList(lang("gui.main.alliance.lore", getViewer(), String.valueOf(members))),
+				icon, slot);
+		alliance.setListener(ClickType.LEFT,
+				() -> InventoryDrawer.open(new AllianceMembersFrame(this, getViewer(), type)));
+		add(alliance);
 	}
 
 	private void addOtherCommands() {
@@ -117,7 +149,8 @@ public class MainFrame extends SCFrame {
 
 	@Override
 	public int getSize() {
-		return 3 * 9;
+		// Row 1: player, clan, warps, rankings, tools. Row 2: NATO / SCO.
+		return 2 * 9;
 	}
 
 }

@@ -9,28 +9,33 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 import static net.sacredlabyrinth.phaed.simpleclans.SimpleClans.lang;
 
 public class AddPermissionFrame extends SCFrame {
-	private final String[] availablePermissions;
-	private final Paginator paginator;
+	// Re-computed on every render: adding a permission reopens this same frame.
+	private final List<String> availablePermissions = new ArrayList<>();
+	private final Paginator paginator = new Paginator(getSize() - 9, availablePermissions);
 	private final Rank rank;
 
 	public AddPermissionFrame(SCFrame parent, Player viewer, Rank rank) {
 		super(parent, viewer);
 		this.rank = rank;
-		Set<String> rankPerms = rank.getPermissions();
-		availablePermissions = Arrays.stream(Helper.fromPermissionArray()).filter(p -> !rankPerms.contains(p))
-				.toArray(String[]::new);
-		paginator = new Paginator(getSize() - 9, availablePermissions.length);
 	}
 
 	@Override
 	public void createComponents() {
+		Set<String> rankPerms = rank.getPermissions();
+		availablePermissions.clear();
+		for (String permission : Helper.fromPermissionArray()) {
+			if (!rankPerms.contains(permission)) {
+				availablePermissions.add(permission);
+			}
+		}
 		for (int slot = 0; slot < 9; slot++) {
 			if (slot == 2 || slot == 6 || slot == 7)
 				continue;
@@ -44,7 +49,7 @@ public class AddPermissionFrame extends SCFrame {
 		int slot = 9;
 		for (int i = paginator.getMinIndex(); paginator.isValidIndex(i); i++) {
 
-			String permission = availablePermissions[i];
+			String permission = availablePermissions.get(i);
 
 			SCComponent c = new SCComponentImpl(
 					lang("gui.add.permission.permission.title",getViewer(), permission),

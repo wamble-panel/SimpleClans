@@ -101,8 +101,8 @@ public class AllianceVotingFrame extends SCFrame {
 
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.GRAY + lang("alliance.gui.vote.proposer", getViewer(), proposal.getProposerName()));
-            lore.add(ChatColor.GREEN + "Agree: " + proposal.getAgreeCount()
-                    + ChatColor.GRAY + "  " + ChatColor.RED + "Disagree: " + proposal.getDisagreeCount());
+            lore.add(lang("alliance.gui.vote.tally", getViewer(),
+                    String.valueOf(proposal.getAgreeCount()), String.valueOf(proposal.getDisagreeCount())));
 
             SCComponent label = new SCComponentImpl.Builder(XMaterial.PAPER)
                     .withDisplayName(ChatColor.AQUA + "#" + proposal.getId() + " " + ChatColor.WHITE + proposal.describe())
@@ -149,16 +149,34 @@ public class AllianceVotingFrame extends SCFrame {
 
     private void vote(Proposal proposal, boolean agree) {
         Player viewer = getViewer();
-        Clan clan = SimpleClans.getInstance().getClanManager().getClanByPlayerUniqueId(viewer.getUniqueId());
-        if (clan == null) {
-            ChatBlock.sendMessageKey(viewer, "not.a.member.of.any.clan");
+        SimpleClans plugin = SimpleClans.getInstance();
+        // Re-check on every click: leadership or permission can change while the menu is open.
+        if (!plugin.getPermissionsManager().has(viewer, "clans.alliance.vote")) {
+            ChatBlock.sendMessageKey(viewer, "insufficient.permissions");
+            viewer.closeInventory();
+            return;
+        }
+        Clan clan = plugin.getClanManager().getClanByPlayerUniqueId(viewer.getUniqueId());
+        if (clan == null || !clan.isLeader(viewer)) {
+            ChatBlock.sendMessageKey(viewer, "alliance.not.member", type.getDisplayName());
+            viewer.closeInventory();
             return;
         }
         AllianceMeetingManager.VoteResult result = manager.castVote(clan, type, proposal.getId(), agree);
-        if (result == AllianceMeetingManager.VoteResult.NO_MEETING) {
-            ChatBlock.sendMessageKey(viewer, "alliance.vote.closed");
-            viewer.closeInventory();
-            return;
+        switch (result) {
+            case NO_MEETING:
+                ChatBlock.sendMessageKey(viewer, "alliance.vote.closed");
+                viewer.closeInventory();
+                return;
+            case NOT_MEMBER:
+                ChatBlock.sendMessageKey(viewer, "alliance.not.member", type.getDisplayName());
+                viewer.closeInventory();
+                return;
+            case NOT_FOUND:
+                ChatBlock.sendMessageKey(viewer, "alliance.gui.vote.gone");
+                break;
+            default:
+                break;
         }
         // Re-render so the glow moves to the chosen option and tallies refresh.
         InventoryDrawer.open(this);

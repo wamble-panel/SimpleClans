@@ -7,6 +7,7 @@ import net.sacredlabyrinth.phaed.simpleclans.managers.ClanManager;
 import net.sacredlabyrinth.phaed.simpleclans.ui.*;
 import net.sacredlabyrinth.phaed.simpleclans.utils.CurrencyFormat;
 import net.sacredlabyrinth.phaed.simpleclans.utils.Paginator;
+import net.sacredlabyrinth.phaed.simpleclans.utils.VanishUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -31,7 +32,9 @@ public class InviteFrame extends SCFrame {
 		super(parent, viewer);
 		this.plugin = SimpleClans.getInstance();
 		ClanManager cm = plugin.getClanManager();
-		players = plugin.getServer().getOnlinePlayers().stream().filter(p -> cm.getClanPlayer(p) == null)
+		// Hide vanished players, like every other player list does.
+		players = plugin.getServer().getOnlinePlayers().stream()
+				.filter(p -> cm.getClanPlayer(p) == null && !VanishUtils.isVanished(viewer, p))
 				.collect(Collectors.toList());
 		paginator = new Paginator(getSize() - 9, players.size());
 
