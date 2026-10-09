@@ -461,7 +461,9 @@ public final class RequestManager {
                     req.incrementAskCount();
                 }
             }
-        }.runTaskTimerAsynchronously(plugin, 0, plugin.getSettingsManager().getSeconds(REQUEST_FREQUENCY));
+            // Sync: `requests` is a plain HashMap the main thread mutates, and ask() looks up
+            // players; iterating it off-thread could corrupt it or throw.
+        }.runTaskTimer(plugin, 0, plugin.getSettingsManager().getSeconds(REQUEST_FREQUENCY));
     }
 
     /**

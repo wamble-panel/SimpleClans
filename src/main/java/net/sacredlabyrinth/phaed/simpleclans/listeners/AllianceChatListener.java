@@ -45,7 +45,13 @@ public class AllianceChatListener extends SCListener {
 
         event.setCancelled(true);
         String message = event.getMessage();
-        plugin.getAllianceChatManager().send(type, cp, message);
+        // Delivery walks clan member lists and online players; do it on the main thread.
+        if (event.isAsynchronous()) {
+            plugin.getServer().getScheduler().runTask(plugin,
+                    () -> plugin.getAllianceChatManager().send(type, cp, message));
+        } else {
+            plugin.getAllianceChatManager().send(type, cp, message);
+        }
     }
 
     @EventHandler

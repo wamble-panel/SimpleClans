@@ -12,7 +12,11 @@ import java.util.logging.Logger;
  */
 public class MySQLCore implements DBCore {
 
+    private static final long VALIDATION_INTERVAL_MILLIS = 30_000;
+    private static final int VALIDATION_TIMEOUT_SECONDS = 2;
+
     private final Logger log;
+    private long lastValidated;
     private Connection connection;
     private final String host;
     private final String username;
@@ -48,10 +52,19 @@ public class MySQLCore implements DBCore {
     }
 
     @Override
-    public Connection getConnection() {
+    public synchronized Connection getConnection() {
         try {
-            if (connection == null || connection.isClosed() || !connection.isValid(0)) {
+            long now = System.currentTimeMillis();
+            if (connection == null || connection.isClosed()) {
                 initialize();
+                lastValidated = now;
+            } else if (now - lastValidated > VALIDATION_INTERVAL_MILLIS) {
+                // isValid() is a network round trip; doing it before every query doubled the
+                // cost of each one. Check periodically, with a timeout (0 meant wait forever).
+                if (!connection.isValid(VALIDATION_TIMEOUT_SECONDS)) {
+                    initialize();
+                }
+                lastValidated = now;
             }
         } catch (SQLException e) {
             initialize();

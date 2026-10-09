@@ -17,6 +17,7 @@ import net.sacredlabyrinth.phaed.simpleclans.storage.SQLiteCore;
 import net.sacredlabyrinth.phaed.simpleclans.utils.ChatUtils;
 import net.sacredlabyrinth.phaed.simpleclans.utils.YAMLSerializer;
 import net.sacredlabyrinth.phaed.simpleclans.uuid.UUIDFetcher;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -772,7 +773,11 @@ public final class StorageManager {
      */
     public void updatePlayerName(final @NotNull ClanPlayer cp) {
         String sql = "UPDATE `" + getPrefixedTable("players") + "` SET `name` = ? WHERE uuid = ?;";
-        try (PreparedStatement pst = core.getConnection().prepareStatement(sql)) {
+        Connection connection = core.getConnection();
+        if (connection == null) {
+            return;
+        }
+        try (PreparedStatement pst = connection.prepareStatement(sql)) {
             pst.setString(1, cp.getName());
             pst.setString(2, cp.getUniqueId().toString());
             pst.executeUpdate();
@@ -1000,19 +1005,24 @@ public final class StorageManager {
     public void insertKill(@NotNull ClanPlayer attacker, @NotNull ClanPlayer victim, @NotNull String type, @NotNull LocalDateTime time) {
         String sql = "INSERT INTO `" + getPrefixedTable("kills") + "` (`attacker_uuid`, `attacker`, `attacker_tag`, `victim_uuid`, " +
                 "`victim`, `victim_tag`, `kill_type`, `created_at`) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
-        try (PreparedStatement pst = core.getConnection().prepareStatement(sql)) {
-            pst.setString(1, attacker.getUniqueId().toString());
-            pst.setString(2, attacker.getName());
-            pst.setString(3, attacker.getTag());
-            pst.setString(4, victim.getUniqueId().toString());
-            pst.setString(5, victim.getName());
-            pst.setString(6, victim.getTag());
-            pst.setString(7, type);
-            pst.setString(8, time.toString());
-            pst.executeUpdate();
-        } catch (SQLException ex) {
-            plugin.getLogger().log(Level.SEVERE, "Error inserting kill record", ex);
-        }
+        // Snapshot the values now; the write runs off the main thread so a PvP kill never
+        // waits on the database.
+        String[] values = {attacker.getUniqueId().toString(), attacker.getName(), attacker.getTag(),
+                victim.getUniqueId().toString(), victim.getName(), victim.getTag(), type, time.toString()};
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            Connection connection = core.getConnection();
+            if (connection == null) {
+                return;
+            }
+            try (PreparedStatement pst = connection.prepareStatement(sql)) {
+                for (int i = 0; i < values.length; i++) {
+                    pst.setString(i + 1, values[i]);
+                }
+                pst.executeUpdate();
+            } catch (SQLException ex) {
+                plugin.getLogger().log(Level.SEVERE, "Error inserting kill record", ex);
+            }
+        });
     }
 
     /**
@@ -1370,35 +1380,50 @@ public final class StorageManager {
         if (connection == null) {
             return;
         }
-        // Synchronize the entire retainAll + iteration + clear sequence on each set so the
-        // async SaveDataTask and main-thread writes cannot interleave on a plain HashSet.
-        synchronized (modifiedClanPlayers) {
+        ClanManager clanManager = plugin.getClanManager();
+
+        // Take a snapshot and release the lock immediately: the main thread adds to these
+        // sets on every player/clan change, so holding the lock through the database batch
+        // would freeze the server for the whole write.
+        List<ClanPlayer> players = drain(modifiedClanPlayers);
+        // Skip purged players (O(1) map lookup; retainAll over a list was O(n*m)).
+        players.removeIf(cp -> clanManager.getAnyClanPlayer(cp.getUniqueId()) == null);
+        if (!players.isEmpty()) {
             try (PreparedStatement pst = prepareUpdateClanPlayerStatement(connection)) {
-                //removing purged players
-                modifiedClanPlayers.retainAll(plugin.getClanManager().getAllClanPlayers());
-                for (ClanPlayer cp : modifiedClanPlayers) {
+                for (ClanPlayer cp : players) {
                     setValues(pst, cp);
                     pst.addBatch();
                 }
                 pst.executeBatch();
-                modifiedClanPlayers.clear();
             } catch (SQLException ex) {
+                modifiedClanPlayers.addAll(players); // retry on the next save
                 plugin.getLogger().log(Level.SEVERE, "Error saving modified ClanPlayers:", ex);
             }
         }
-        synchronized (modifiedClans) {
+
+        List<Clan> clans = drain(modifiedClans);
+        // Skip disbanded clans.
+        clans.removeIf(clan -> clanManager.getClan(clan.getTag()) != clan);
+        if (!clans.isEmpty()) {
             try (PreparedStatement pst = prepareUpdateClanStatement(connection)) {
-                //removing disbanded clans
-                modifiedClans.retainAll(plugin.getClanManager().getClans());
-                for (Clan clan : modifiedClans) {
+                for (Clan clan : clans) {
                     setValues(pst, clan);
                     pst.addBatch();
                 }
                 pst.executeBatch();
-                modifiedClans.clear();
             } catch (SQLException ex) {
+                modifiedClans.addAll(clans); // retry on the next save
                 plugin.getLogger().log(Level.SEVERE, "Error saving modified Clans:", ex);
             }
+        }
+    }
+
+    @NotNull
+    private static <T> List<T> drain(@NotNull Set<T> set) {
+        synchronized (set) {
+            List<T> copy = new ArrayList<>(set);
+            set.clear();
+            return copy;
         }
     }
 

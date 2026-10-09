@@ -30,6 +30,8 @@ import java.util.regex.Pattern;
 
 public final class BungeeManager implements ProxyManager, PluginMessageListener {
 
+    private final boolean enabled;
+
     private static final String UPDATE_CLAN_CHANNEL = "UpdateClan";
     private static final String UPDATE_CLANPLAYER_CHANNEL = "UpdateClanPlayer";
     private static final String DELETE_CLAN_CHANNEL = "DeleteClan";
@@ -54,7 +56,8 @@ public final class BungeeManager implements ProxyManager, PluginMessageListener 
                 .registerTypeAdapter(ClanPlayerListAdapter.getType(), new ClanPlayerListAdapter(plugin))
                 .registerTypeAdapter(SCMessage.class, new SCMessageAdapter(plugin)).setExclusionStrategies()
                 .create();
-        if (!plugin.getSettingsManager().is(ConfigField.PERFORMANCE_USE_BUNGEECORD)) {
+        enabled = plugin.getSettingsManager().is(ConfigField.PERFORMANCE_USE_BUNGEECORD);
+        if (!enabled) {
             return;
         }
         Bukkit.getMessenger().registerOutgoingPluginChannel(plugin, "BungeeCord");
@@ -183,11 +186,17 @@ public final class BungeeManager implements ProxyManager, PluginMessageListener 
 
     @Override
     public void sendUpdate(Clan clan) {
+        if (!enabled) {
+            return; // don't serialize the whole object for nothing on every save
+        }
         forwardToAllServers(UPDATE_CLAN_CHANNEL, gson.toJson(clan));
     }
 
     @Override
     public void sendUpdate(ClanPlayer cp) {
+        if (!enabled) {
+            return; // don't serialize the whole object for nothing on every save
+        }
         forwardToAllServers(UPDATE_CLANPLAYER_CHANNEL, gson.toJson(cp));
     }
 
@@ -255,6 +264,9 @@ public final class BungeeManager implements ProxyManager, PluginMessageListener 
 
     @SuppressWarnings("UnstableApiUsage")
     private void forwardPluginMessage(final String subChannel, final ByteArrayDataOutput message, final boolean all) {
+        if (!enabled) {
+            return;
+        }
         SimpleClans.debug(String.format("Forwarding message, channel %s, message %s, all %s", subChannel, message, all));
         if (!isChannelRegistered()) {
             return;

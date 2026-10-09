@@ -174,8 +174,16 @@ public class SCPlayerListener extends SCListener {
                     ChatBlock.sendMessage(player, ChatColor.RED + lang("insufficient.permissions", player));
                     return;
                 }
-                plugin.getChatManager().processChat(SPIGOT, channel, cp, event.getMessage());
                 event.setCancelled(true);
+                // Chat formatting runs PlaceholderAPI and walks clan member lists, neither of
+                // which is safe on the async chat thread.
+                String message = event.getMessage();
+                if (event.isAsynchronous()) {
+                    Bukkit.getScheduler().runTask(plugin,
+                            () -> plugin.getChatManager().processChat(SPIGOT, channel, cp, message));
+                } else {
+                    plugin.getChatManager().processChat(SPIGOT, channel, cp, message);
+                }
             }
         }, plugin, true);
     }
@@ -195,12 +203,24 @@ public class SCPlayerListener extends SCListener {
             plugin.getLogger().warning(String.format("Found duplicate for %s, UUIDs: %s, %s", player.getName(),
                     player.getUniqueId(), duplicate.getUniqueId()));
             duplicate.setName(duplicate.getUniqueId().toString());
-            plugin.getStorageManager().updatePlayerName(duplicate);
         }
         if (cp != null) {
             cp.setName(player.getName());
-            plugin.getStorageManager().updatePlayerName(cp);
         }
+        if (duplicate == null && cp == null) {
+            return;
+        }
+        // Persist off the main thread, in one task so the duplicate is renamed before the
+        // joining player takes its name.
+        final ClanPlayer renamedDuplicate = duplicate;
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            if (renamedDuplicate != null) {
+                plugin.getStorageManager().updatePlayerName(renamedDuplicate);
+            }
+            if (cp != null) {
+                plugin.getStorageManager().updatePlayerName(cp);
+            }
+        });
     }
 
 }

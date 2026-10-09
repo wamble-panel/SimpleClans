@@ -1,5 +1,6 @@
 package net.sacredlabyrinth.phaed.simpleclans.ui.frames.staff;
 
+import net.sacredlabyrinth.phaed.simpleclans.ClanPlayer;
 import net.sacredlabyrinth.phaed.simpleclans.SimpleClans;
 import net.sacredlabyrinth.phaed.simpleclans.ui.InventoryDrawer;
 import net.sacredlabyrinth.phaed.simpleclans.ui.SCComponent;
@@ -14,10 +15,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.Map;
+import java.util.UUID;
 
 import static net.sacredlabyrinth.phaed.simpleclans.SimpleClans.lang;
 
@@ -25,7 +26,9 @@ public class PlayerListFrame extends SCFrame {
 
     private final boolean onlineOnly;
     private Paginator paginator;
-    private List<OfflinePlayer> players;
+    // UUIDs sorted by name; OfflinePlayers are only created for the visible page, since
+    // OfflinePlayer#getName() can read playerdata from disk for uncached players.
+    private final List<UUID> players = new ArrayList<>();
 
     public PlayerListFrame(@NotNull Player viewer, @Nullable SCFrame parent, boolean onlineOnly) {
         super(parent, viewer);
@@ -47,7 +50,7 @@ public class PlayerListFrame extends SCFrame {
 
         int slot = 9;
         for (int i = paginator.getMinIndex(); paginator.isValidIndex(i); i++) {
-            OfflinePlayer player = players.get(i);
+            OfflinePlayer player = Bukkit.getOfflinePlayer(players.get(i));
             SCComponent c = Components.getPlayerComponent(this, getViewer(), player, slot, false);
             c.setListener(ClickType.LEFT, () -> InventoryDrawer.open(new PlayerDetailsFrame(getViewer(), this, player)));
 
@@ -57,17 +60,22 @@ public class PlayerListFrame extends SCFrame {
     }
 
     private void loadPlayers() {
-        if (onlineOnly) {
-            players = new ArrayList<>(Bukkit.getOnlinePlayers());
-        } else {
-            players = Stream.concat(
-                            SimpleClans.getInstance().getClanManager().getAllClanPlayers().stream().
-                                    map(cp -> Bukkit.getOfflinePlayer(cp.getUniqueId())),
-                            Bukkit.getOnlinePlayers().stream())
-                    .distinct().collect(Collectors.toList());
+        Map<UUID, String> names = new HashMap<>();
+        if (!onlineOnly) {
+            for (ClanPlayer cp : SimpleClans.getInstance().getClanManager().getAllClanPlayers()) {
+                if (cp.getName() != null) {
+                    names.put(cp.getUniqueId(), cp.getName());
+                }
+            }
         }
-        players = players.stream().filter(p -> p.getName() != null).collect(Collectors.toList());
-        players.sort(Comparator.comparing(OfflinePlayer::getName));
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            names.put(online.getUniqueId(), online.getName());
+        }
+        List<Map.Entry<UUID, String>> sorted = new ArrayList<>(names.entrySet());
+        sorted.sort(Map.Entry.comparingByValue(String.CASE_INSENSITIVE_ORDER));
+        for (Map.Entry<UUID, String> entry : sorted) {
+            players.add(entry.getKey());
+        }
         paginator = new Paginator(getSize() - 9, players.size());
     }
 

@@ -23,7 +23,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.function.Consumer;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,6 +33,9 @@ public class SimpleClansExpansion extends PlaceholderExpansion implements Relati
     private static final Pattern TOP_CLANS_PATTERN = Pattern.compile("(?<strip>^topclans_(?<position>\\d+)_)clan_");
     private static final Pattern TOP_PLAYERS_PATTERN = Pattern.compile("(?<strip>^topplayers_(?<position>\\d+)_)");
     private static final Map<String, PlaceholderResolver> RESOLVERS = new HashMap<>();
+    // Requests may arrive from async scoreboard/tab threads, hence concurrent collections.
+    private static final Map<Class<?>, Map<String, BoundPlaceholder>> METHODS = new ConcurrentHashMap<>();
+    private static final Set<String> WARNED = ConcurrentHashMap.newKeySet();
     private List<String> placeholders;
     private final SimpleClans plugin;
     private final ClanManager clanManager;
@@ -141,13 +144,13 @@ public class SimpleClansExpansion extends PlaceholderExpansion implements Relati
         Matcher matcher = TOP_CLANS_PATTERN.matcher(params);
         if (matcher.find()) {
             int position = Integer.parseInt(matcher.group("position"));
-            clan = getFromPosition(clanManager.getClans(), position, clanManager::sortClansByKDR);
+            clan = RankingCache.clans(clanManager).get(position);
             params = params.replace(matcher.group("strip"), "");
         }
         matcher = TOP_PLAYERS_PATTERN.matcher(params);
         if (matcher.find()) {
             int position = Integer.parseInt(matcher.group("position"));
-            cp = getFromPosition(clanManager.getAllClanPlayers(), position, clanManager::sortClanPlayersByKDR);
+            cp = RankingCache.players(clanManager).get(position);
             params = params.replace(matcher.group("strip"), "");
         }
         return getValue(player, cp, clan, params);
@@ -237,19 +240,6 @@ public class SimpleClansExpansion extends PlaceholderExpansion implements Relati
         return s != null ? s : "";
     }
 
-    @Nullable
-    private <T> T getFromPosition(List<T> list, int position, Consumer<List<T>> sort) {
-        if (isPositionValid(list, position)) {
-            sort.accept(list);
-            return list.get(position - 1);
-        }
-        return null;
-    }
-
-    private boolean isPositionValid(@NotNull Collection<?> collection, int position) {
-        return position >= 1 && position <= collection.size();
-    }
-
     @NotNull
     private String getValue(@Nullable OfflinePlayer player, @Nullable ClanPlayer cp, @Nullable Clan clan,
                             @NotNull String placeholder) {
@@ -262,32 +252,57 @@ public class SimpleClansExpansion extends PlaceholderExpansion implements Relati
 
     @NotNull
     private String getValue(@Nullable OfflinePlayer player, @Nullable Object object, @NotNull String placeholder) {
-        if (object != null) {
-            for (Method declaredMethod : object.getClass().getDeclaredMethods()) {
-                Placeholder[] annotations = declaredMethod.getAnnotationsByType(Placeholder.class);
-                for (Placeholder p : annotations) {
-                    if (p.value().equals(placeholder)) {
-                        return resolve(player, object, declaredMethod, p.resolver(), placeholder, p.config());
-                    }
-                }
-            }
-            plugin.getLogger().warning(String.format("Placeholder %s not found", placeholder));
+        if (object == null) {
+            return "";
         }
-        return "";
+        BoundPlaceholder bound = METHODS.computeIfAbsent(object.getClass(), SimpleClansExpansion::indexPlaceholders)
+                .get(placeholder);
+        if (bound == null) {
+            // Warn once per unknown placeholder, not on every scoreboard refresh.
+            if (WARNED.add(placeholder)) {
+                plugin.getLogger().warning(String.format("Placeholder %s not found", placeholder));
+            }
+            return "";
+        }
+        PlaceholderResolver resolver = RESOLVERS.get(bound.resolverId);
+        if (resolver == null) {
+            if (WARNED.add(bound.resolverId)) {
+                plugin.getLogger().warning(String.format("Resolver %s for %s not found", bound.resolverId, placeholder));
+            }
+            return "";
+        }
+        return resolver.resolve(player, object, bound.method, placeholder, bound.config);
     }
 
-    private String resolve(@Nullable OfflinePlayer player, @NotNull Object object, @NotNull Method method,
-                           @NotNull String resolverId, @NotNull String placeholder, @NotNull String config) {
-        PlaceholderResolver resolver = RESOLVERS.get(resolverId);
-        if (resolver != null) {
-            return resolver.resolve(player, object, method, placeholder, getConfigMap(config));
+    /**
+     * Maps each {@link Placeholder} name declared on a class to its method, resolver and
+     * parsed config. Built once per class instead of reflecting on every request.
+     */
+    @NotNull
+    private static Map<String, BoundPlaceholder> indexPlaceholders(@NotNull Class<?> clazz) {
+        Map<String, BoundPlaceholder> index = new HashMap<>();
+        for (Method method : clazz.getDeclaredMethods()) {
+            for (Placeholder p : method.getAnnotationsByType(Placeholder.class)) {
+                index.putIfAbsent(p.value(), new BoundPlaceholder(method, p.resolver(), getConfigMap(p.config())));
+            }
         }
-        plugin.getLogger().warning(String.format("Resolver %s for %s not found", resolverId, placeholder));
-        return "";
+        return index;
+    }
+
+    private static final class BoundPlaceholder {
+        private final Method method;
+        private final String resolverId;
+        private final Map<String, String> config;
+
+        private BoundPlaceholder(Method method, String resolverId, Map<String, String> config) {
+            this.method = method;
+            this.resolverId = resolverId;
+            this.config = Collections.unmodifiableMap(config);
+        }
     }
 
     @NotNull
-    private Map<String, String> getConfigMap(@NotNull String config) {
+    private static Map<String, String> getConfigMap(@NotNull String config) {
         HashMap<String, String> map = new HashMap<>();
         String[] elements = config.split(",");
         for (String element : elements) {

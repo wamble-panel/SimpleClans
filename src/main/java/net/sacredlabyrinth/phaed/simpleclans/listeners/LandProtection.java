@@ -1,5 +1,6 @@
 package net.sacredlabyrinth.phaed.simpleclans.listeners;
 
+import io.papermc.lib.PaperLib;
 import net.sacredlabyrinth.phaed.simpleclans.ChatBlock;
 import net.sacredlabyrinth.phaed.simpleclans.Clan;
 import net.sacredlabyrinth.phaed.simpleclans.ClanPlayer;
@@ -262,7 +263,9 @@ public class LandProtection implements Listener {
     private ProtectionManager.Action getInteractEventAction(PlayerInteractEvent event) {
         ProtectionManager.Action action;
         Block clickedBlock = event.getClickedBlock();
-        if (clickedBlock != null && clickedBlock.getState() instanceof InventoryHolder) {
+        // No snapshot: on Paper this avoids copying a container's whole inventory on every
+        // click just to check the block's type. (Spigot falls back to a normal snapshot.)
+        if (clickedBlock != null && PaperLib.getBlockState(clickedBlock, false).getState() instanceof InventoryHolder) {
             action = CONTAINER;
         } else {
             action = INTERACT;
