@@ -28,6 +28,14 @@ public final class RankingCache {
     private RankingCache() {
     }
 
+    /**
+     * Drops the cached rankings, e.g. after the data was reloaded from the database.
+     */
+    public static void invalidate() {
+        clans = null;
+        players = null;
+    }
+
     @NotNull
     public static Ranking<Clan> clans(@NotNull ClanManager clanManager) {
         Ranking<Clan> ranking = clans;

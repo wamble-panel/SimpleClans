@@ -4,6 +4,7 @@ import com.cryptomorin.xseries.XMaterial;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.sacredlabyrinth.phaed.simpleclans.*;
 import net.sacredlabyrinth.phaed.simpleclans.events.ClanBalanceUpdateEvent;
+import net.sacredlabyrinth.phaed.simpleclans.hooks.papi.RankingCache;
 import net.sacredlabyrinth.phaed.simpleclans.events.CreateClanEvent;
 import net.sacredlabyrinth.phaed.simpleclans.events.EconomyTransactionEvent.Cause;
 import net.sacredlabyrinth.phaed.simpleclans.loggers.BankOperator;
@@ -59,6 +60,8 @@ public final class ClanManager {
         clans.clear();
         clanPlayers.clear();
         kills.clear();
+        // Placeholder rankings hold the old objects; rebuild them from the reloaded data.
+        RankingCache.invalidate();
     }
 
     /**

@@ -179,8 +179,12 @@ public class SCPlayerListener extends SCListener {
                 // which is safe on the async chat thread.
                 String message = event.getMessage();
                 if (event.isAsynchronous()) {
-                    Bukkit.getScheduler().runTask(plugin,
-                            () -> plugin.getChatManager().processChat(SPIGOT, channel, cp, message));
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        // The player may have left the clan during the tick in between.
+                        if (cp.getClan() != null) {
+                            plugin.getChatManager().processChat(SPIGOT, channel, cp, message);
+                        }
+                    });
                 } else {
                     plugin.getChatManager().processChat(SPIGOT, channel, cp, message);
                 }

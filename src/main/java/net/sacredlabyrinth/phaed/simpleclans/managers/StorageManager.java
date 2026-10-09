@@ -53,6 +53,7 @@ public final class StorageManager {
     // Use a synchronized wrapper so individual operations are thread-safe.
     private final Set<Clan> modifiedClans = Collections.synchronizedSet(new HashSet<>());
     private final Set<ClanPlayer> modifiedClanPlayers = Collections.synchronizedSet(new HashSet<>());
+    private final Object saveLock = new Object();
 
     /**
      *
@@ -1334,6 +1335,15 @@ public final class StorageManager {
      * </p>
 	 */
 	public void saveModified() {
+        // Serialize whole saves (not the dirty sets): a shutdown/reload save must wait for an
+        // in-flight async save, otherwise the connection could close mid-batch. Main-thread
+        // updates only touch the sets' own locks, so they never wait on this.
+        synchronized (saveLock) {
+            saveModifiedLocked();
+        }
+    }
+
+    private void saveModifiedLocked() {
         Connection connection = core.getConnection();
         if (connection == null) {
             return;
@@ -1353,7 +1363,7 @@ public final class StorageManager {
                     pst.addBatch();
                 }
                 pst.executeBatch();
-            } catch (SQLException ex) {
+            } catch (SQLException | RuntimeException ex) {
                 modifiedClanPlayers.addAll(players); // retry on the next save
                 plugin.getLogger().log(Level.SEVERE, "Error saving modified ClanPlayers:", ex);
             }
@@ -1369,7 +1379,7 @@ public final class StorageManager {
                     pst.addBatch();
                 }
                 pst.executeBatch();
-            } catch (SQLException ex) {
+            } catch (SQLException | RuntimeException ex) {
                 modifiedClans.addAll(clans); // retry on the next save
                 plugin.getLogger().log(Level.SEVERE, "Error saving modified Clans:", ex);
             }

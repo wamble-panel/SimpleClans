@@ -19,6 +19,14 @@ public class War {
         return new ArrayList<>(clans.keySet());
     }
 
+    public int getTotalCasualties() {
+        return clans.values().stream().mapToInt(value -> value).sum();
+    }
+
+    public int getCasualties(@NotNull Clan clan) {
+        return clans.getOrDefault(clan, 0);
+    }
+
     public void increaseCasualties(@NotNull Clan clan) {
         clans.computeIfPresent(clan, (c, i) -> i + 1);
     }
@@ -28,14 +36,17 @@ public class War {
         if (this == obj) {
             return true;
         }
+        // Identity is the pair of clans only. Casualties change during the war; including them
+        // changed the hash of a War already stored as a HashMap key, so the war could no longer
+        // be found or removed after the first kill.
         if (obj instanceof War) {
-            return clans.equals(((War) obj).clans);
+            return clans.keySet().equals(((War) obj).clans.keySet());
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return clans.hashCode();
+        return clans.keySet().hashCode();
     }
 }
