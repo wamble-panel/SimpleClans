@@ -13,6 +13,7 @@ import net.sacredlabyrinth.phaed.simpleclans.ui.SCComponentImpl;
 import net.sacredlabyrinth.phaed.simpleclans.ui.SCFrame;
 import net.sacredlabyrinth.phaed.simpleclans.utils.Paginator;
 import org.bukkit.ChatColor;
+import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
@@ -183,9 +184,17 @@ public class AllianceVotingFrame extends SCFrame {
     }
 
     private void applyGlow(SCComponent component) {
+        // Look the enchantment up by key: the DURABILITY field was renamed in newer versions,
+        // and a missing field here would make InventoryDrawer disable the whole GUI.
+        Enchantment glow;
+        try {
+            glow = Enchantment.getByKey(NamespacedKey.minecraft("unbreaking"));
+        } catch (Throwable ex) {
+            glow = null;
+        }
         ItemMeta meta = component.getItemMeta();
-        if (meta != null) {
-            meta.addEnchant(Enchantment.DURABILITY, 1, true);
+        if (meta != null && glow != null) {
+            meta.addEnchant(glow, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
             component.setItemMeta(meta);
         }

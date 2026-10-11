@@ -806,6 +806,37 @@ public class ClanPlayer implements Serializable, Comparable<ClanPlayer> {
         SimpleClans.getInstance().getClanManager().updateDisplayName(toPlayer());
     }
 
+    /**
+     * @return the clan tax this player still owes to their current clan. Debts are tied to
+     * the clan they were billed by, so they don't follow the player into another clan.
+     */
+    @Placeholder("tax_owed")
+    public double getTaxOwed() {
+        String clanTag = getTag();
+        if (clanTag == null || clanTag.isEmpty() || !clanTag.equals(flags.getString("tax_owed_clan", ""))) {
+            return 0;
+        }
+        return flags.getNumber("tax_owed").doubleValue();
+    }
+
+    public void setTaxOwed(double owed) {
+        flags.put("tax_owed", Math.max(0, owed));
+        flags.put("tax_owed_clan", getTag() != null ? getTag() : "");
+        SimpleClans.getInstance().getStorageManager().updateClanPlayer(this);
+    }
+
+    /**
+     * @return true if tax bills are paid automatically from this player's balance
+     */
+    public boolean isTaxAutoPay() {
+        return flags.getBoolean("tax_autopay", false);
+    }
+
+    public void setTaxAutoPay(boolean autoPay) {
+        flags.put("tax_autopay", autoPay);
+        SimpleClans.getInstance().getStorageManager().updateClanPlayer(this);
+    }
+
     @Deprecated
     public boolean isUseChatShortcut() {
         return false;

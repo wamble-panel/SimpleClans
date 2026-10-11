@@ -66,6 +66,8 @@ public class SimpleClans extends JavaPlugin {
     private AllianceManager allianceManager;
     private AllianceMeetingManager allianceMeetingManager;
     private AllianceChatManager allianceChatManager;
+    private TaxManager taxManager;
+    private ElectionManager electionManager;
     private boolean hasUUID;
     private static final Pattern ACF_PLACEHOLDER_PATTERN = Pattern.compile("\\{(?<key>[a-zA-Z]+?)}");
 
@@ -122,6 +124,8 @@ public class SimpleClans extends JavaPlugin {
         allianceManager.load();
         allianceMeetingManager = new AllianceMeetingManager(this);
         allianceChatManager = new AllianceChatManager(this);
+        taxManager = new TaxManager(this);
+        electionManager = new ElectionManager(this);
         teleportManager = new TeleportManager();
         protectionManager = new ProtectionManager();
         protectionManager.registerListeners();
@@ -195,6 +199,7 @@ public class SimpleClans extends JavaPlugin {
     private void startTasks() {
         allianceMeetingManager.start();
         new AllianceInactivityTask(this).start();
+        new ClanGovernanceTask(this).start();
         if (getSettingsManager().is(PERFORMANCE_SAVE_PERIODICALLY)) {
             new SaveDataTask().start();
         }
@@ -282,6 +287,14 @@ public class SimpleClans extends JavaPlugin {
 
     public AllianceChatManager getAllianceChatManager() {
         return allianceChatManager;
+    }
+
+    public TaxManager getTaxManager() {
+        return taxManager;
+    }
+
+    public ElectionManager getElectionManager() {
+        return electionManager;
     }
 
     public BankLogger getBankLogger() {

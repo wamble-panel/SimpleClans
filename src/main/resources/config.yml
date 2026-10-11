@@ -184,6 +184,21 @@ warps:
     # Only allow setting a warp inside land the clan owns (needs a supported land/claims plugin).
     # Recommended on survival servers so a warp can't be planted inside someone else's base.
     set-only-in-own-land: false
+tax:
+    # Leaders can set a flat tax that is billed to every member weekly or monthly (/clan tax).
+    # Paying is optional: unpaid tax just adds up as an outstanding bill, and members are
+    # reminded when they log in. Paid tax goes into the clan bank. Leaders never pay tax.
+    enabled: true
+    # The highest tax a leader can set.
+    max-amount: 1000000.0
+elections:
+    # When every leader of a clan has been offline this many days, the members get to elect
+    # a new leader (/clan vote <member>, /clan election). The most voted member becomes leader
+    # and the inactive leaders are demoted. They can't kick members while the vote is running.
+    enabled: true
+    leader-inactive-days: 14
+    # How long the vote stays open.
+    duration-hours: 48
 kill-weights:
     rival: 2.0
     civilian: 0.0

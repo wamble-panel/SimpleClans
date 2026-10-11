@@ -350,6 +350,10 @@ public class ClanCommands extends BaseCommand {
         }
 
         Clan clan = cm.getClanByPlayerUniqueId(sender.getUniqueId());
+        if (plugin.getElectionManager().isLockedLeader(clan, sender.getUniqueId())) {
+            ChatBlock.sendMessageKey(sender, "election.locked.action");
+            return;
+        }
         if (Objects.requireNonNull(clan).isLeader(clanPlayer.getUniqueId())) {
             ChatBlock.sendMessage(sender, RED + lang("you.cannot.kick.another.leader", sender));
             return;

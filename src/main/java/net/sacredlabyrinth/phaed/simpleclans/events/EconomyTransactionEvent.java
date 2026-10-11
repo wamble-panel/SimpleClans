@@ -84,6 +84,7 @@ public class EconomyTransactionEvent extends Event implements Cancellable {
         CLAN_HOME_TELEPORT,
         CLAN_HOME_TELEPORT_SET,
         CLAN_WARP_SET,
+        CLAN_TAX,
         DISCORD_CREATION,
         PLAYER_KILLED,
         MEMBER_FEE_SET,

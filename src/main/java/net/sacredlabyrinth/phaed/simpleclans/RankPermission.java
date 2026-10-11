@@ -43,7 +43,8 @@ public enum RankPermission {
 	FRIENDLYFIRE("simpleclans.leader.ff", PermissionLevel.LEADER),
 	SETBANNER("simpleclans.leader.setbanner", PermissionLevel.LEADER),
 	WARP_SET("simpleclans.leader.warp", PermissionLevel.LEADER),
-	WARP_TOGGLE("simpleclans.leader.warp", PermissionLevel.LEADER);
+	WARP_TOGGLE("simpleclans.leader.warp", PermissionLevel.LEADER),
+	TAX_MANAGE("simpleclans.leader.tax", PermissionLevel.LEADER);
 
 	private final String bukkitPermission;
 	private final PermissionLevel permissionLevel;

@@ -60,6 +60,12 @@ permissions:
     description: Can open the clan warp list and visit active clan warps
   simpleclans.leader.warp:
     description: Can set, remove and toggle the clan warp
+  simpleclans.member.tax:
+    description: Can view and pay clan tax and toggle tax auto-pay
+  simpleclans.leader.tax:
+    description: Can set the clan tax, its period and exemptions, and see who owes
+  simpleclans.member.election:
+    description: Can view and vote in clan leader elections
   simpleclans.anyone.list.balance:
     description: Can list clans by balance
   simpleclans.anyone.profile:
@@ -316,6 +322,8 @@ permissions:
       simpleclans.member.ally: true
       simpleclans.member.chat: true
       simpleclans.member.home: true
+      simpleclans.member.tax: true
+      simpleclans.member.election: true
       simpleclans.member.kills: true
       simpleclans.member.bank: true
       simpleclans.member.fee-check: true
@@ -344,6 +352,7 @@ permissions:
       simpleclans.leader.war: true
       simpleclans.leader.home-set: true
       simpleclans.leader.warp: true
+      simpleclans.leader.tax: true
       simpleclans.leader.regroup.home: true
       simpleclans.leader.regroup.me: true
       simpleclans.leader.setrank: true

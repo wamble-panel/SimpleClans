@@ -4,18 +4,22 @@ import com.cryptomorin.xseries.XMaterial;
 import net.sacredlabyrinth.phaed.simpleclans.Clan;
 import net.sacredlabyrinth.phaed.simpleclans.ClanPlayer;
 import net.sacredlabyrinth.phaed.simpleclans.RankPermission;
+import net.sacredlabyrinth.phaed.simpleclans.SimpleClans;
 import net.sacredlabyrinth.phaed.simpleclans.ui.InventoryDrawer;
 import net.sacredlabyrinth.phaed.simpleclans.ui.SCComponent;
 import net.sacredlabyrinth.phaed.simpleclans.ui.SCComponentImpl;
 import net.sacredlabyrinth.phaed.simpleclans.ui.SCFrame;
 import net.sacredlabyrinth.phaed.simpleclans.ui.frames.staff.PlayerDetailsFrame;
 import net.sacredlabyrinth.phaed.simpleclans.utils.ChatUtils;
+import net.sacredlabyrinth.phaed.simpleclans.utils.CurrencyFormat;
 import net.sacredlabyrinth.phaed.simpleclans.utils.Paginator;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -65,11 +69,18 @@ public class RosterFrame extends SCFrame {
 		add(Components.getPreviousPageComponent(6, this::previousPage, paginator, getViewer()));
 		add(Components.getNextPageComponent(7, this::nextPage, paginator, getViewer()));
 
+		// Members who can manage tax see what everyone owes.
+		SimpleClans plugin = SimpleClans.getInstance();
+		boolean showTax = !staff && plugin.getTaxManager().isEnabled()
+				&& plugin.getPermissionsManager().has(getViewer(), RankPermission.TAX_MANAGE, false);
 		int slot = 9;
 		for (int i = paginator.getMinIndex(); paginator.isValidIndex(i); i++) {
 			ClanPlayer cp = allMembers.get(i);
 			SCComponent playerComponent = Components.getPlayerComponent(this, getViewer(), cp, slot,
 					true);
+			if (showTax) {
+				addTaxLine(playerComponent, cp);
+			}
 			if (staff) {
 				playerComponent.setListener(ClickType.LEFT, () -> InventoryDrawer.open(
 						new PlayerDetailsFrame(getViewer(), this, Bukkit.getOfflinePlayer(cp.getUniqueId()))));
@@ -77,6 +88,24 @@ public class RosterFrame extends SCFrame {
 			add(playerComponent);
 			slot++;
 		}
+	}
+
+	private void addTaxLine(@NotNull SCComponent component, @NotNull ClanPlayer cp) {
+		ItemMeta meta = component.getItemMeta();
+		if (meta == null) {
+			return;
+		}
+		List<String> lore = meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+		double owed = cp.getTaxOwed();
+		if (owed > 0) {
+			lore.add(lang("gui.roster.tax.owes", getViewer(), CurrencyFormat.format(owed)));
+		} else if (subject.isTaxExempt(cp)) {
+			lore.add(lang("gui.roster.tax.exempt", getViewer()));
+		} else {
+			lore.add(lang("gui.roster.tax.paid", getViewer()));
+		}
+		meta.setLore(lore);
+		component.setItemMeta(meta);
 	}
 
 	private void previousPage() {

@@ -77,6 +77,10 @@ public class LeaderCommands extends BaseCommand {
                         ClanPlayer cp,
                         @Conditions("online|same_clan") @Name("member") ClanPlayerInput other) {
         Player otherPl = Objects.requireNonNull(other.getClanPlayer().toPlayer());
+        if (plugin.getElectionManager().isLockedLeader(clan, player.getUniqueId())) {
+            ChatBlock.sendMessageKey(player, "election.locked.action");
+            return;
+        }
         if (!permissions.has(otherPl, "simpleclans.leader.promotable")) {
             ChatBlock.sendMessage(player, RED + lang("the.player.does.not.have.the.permissions.to.lead.a.clan",
                     player));
@@ -106,6 +110,10 @@ public class LeaderCommands extends BaseCommand {
     @CommandPermission("simpleclans.leader.disband")
     @Description("{@@command.description.disband}")
     public void disband(Player player, ClanPlayer cp, Clan clan) {
+        if (plugin.getElectionManager().isLockedLeader(clan, player.getUniqueId())) {
+            ChatBlock.sendMessageKey(player, "election.locked.action");
+            return;
+        }
         if (clan.getLeaders().size() != 1) {
             requestManager.requestAllLeaders(cp, ClanRequest.DISBAND, clan.getTag(), "asking.to.disband",
                     player.getName());

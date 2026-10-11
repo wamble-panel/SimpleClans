@@ -98,6 +98,16 @@ public class SCPlayerListener extends SCListener {
         }
 
         plugin.getPermissionsManager().addClanPermissions(cp);
+
+        if (cp.getClan() != null) {
+            // Election and tax reminders, a few seconds in so they aren't buried by join messages.
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    plugin.getElectionManager().onJoin(player, cp);
+                    plugin.getTaxManager().onJoin(player, cp);
+                }
+            }, 60L);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)

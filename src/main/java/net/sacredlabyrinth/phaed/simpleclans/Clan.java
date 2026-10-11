@@ -1700,6 +1700,159 @@ public class Clan implements Serializable, Comparable<Clan> {
         return isWarpEnabled() && getWarpLocation() != null;
     }
 
+    // ----- tax -----
+
+    /**
+     * @return the flat tax billed to each member every period, or 0 if tax is off
+     */
+    @Placeholder("tax_amount")
+    public double getTaxAmount() {
+        return flags.getNumber("tax_amount").doubleValue();
+    }
+
+    public void setTaxAmount(double amount) {
+        flags.put("tax_amount", Math.max(0, amount));
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
+    @NotNull
+    public TaxPeriod getTaxPeriod() {
+        TaxPeriod period = TaxPeriod.parse(flags.getString("tax_period"));
+        return period != null ? period : TaxPeriod.WEEKLY;
+    }
+
+    public void setTaxPeriod(@NotNull TaxPeriod period) {
+        flags.put("tax_period", period.name());
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
+    /**
+     * @return when the next tax bill is issued (epoch millis), or 0 if not scheduled
+     */
+    public long getTaxNextDue() {
+        return flags.getNumber("tax_next_due").longValue();
+    }
+
+    public void setTaxNextDue(long epochMillis) {
+        flags.put("tax_next_due", epochMillis);
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
+    /**
+     * @return names of the ranks whose members don't pay tax
+     */
+    @NotNull
+    public List<String> getTaxExemptRanks() {
+        return flags.getStringList("tax_exempt_ranks");
+    }
+
+    public void setTaxExemptRanks(@NotNull List<String> ranks) {
+        flags.put("tax_exempt_ranks", ranks);
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
+    public boolean isTaxExemptTrusted() {
+        return flags.getBoolean("tax_exempt_trusted", false);
+    }
+
+    public void setTaxExemptTrusted(boolean exempt) {
+        flags.put("tax_exempt_trusted", exempt);
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
+    /**
+     * @return true if this member is not billed: leaders, exempt ranks, and trusted members
+     * when trusted members are exempt
+     */
+    public boolean isTaxExempt(@NotNull ClanPlayer cp) {
+        if (cp.isLeader()) {
+            return true;
+        }
+        if (isTaxExemptTrusted() && cp.isTrusted()) {
+            return true;
+        }
+        String rank = cp.getRankId();
+        return !rank.isEmpty() && getTaxExemptRanks().contains(rank);
+    }
+
+    // ----- leader elections -----
+
+    /**
+     * @return true while members are electing a new leader to replace inactive ones
+     */
+    @Placeholder("election_active")
+    public boolean isElectionActive() {
+        return getElectionEnd() > 0;
+    }
+
+    /**
+     * @return when the running election closes (epoch millis), or 0 if none is running
+     */
+    public long getElectionEnd() {
+        return flags.getNumber("election_end").longValue();
+    }
+
+    /**
+     * @return the inactive leaders the running election replaces
+     */
+    @NotNull
+    public Set<UUID> getElectionLeaders() {
+        Set<UUID> leaders = new HashSet<>();
+        for (String uuid : flags.getStringList("election_leaders")) {
+            leaders.add(UUID.fromString(uuid));
+        }
+        return leaders;
+    }
+
+    /**
+     * @return voter -> chosen candidate for the running election
+     */
+    @NotNull
+    public Map<UUID, UUID> getElectionVotes() {
+        Map<UUID, UUID> votes = new HashMap<>();
+        for (String entry : flags.getStringList("election_votes")) {
+            String[] parts = entry.split(":", 2);
+            if (parts.length == 2) {
+                votes.put(UUID.fromString(parts[0]), UUID.fromString(parts[1]));
+            }
+        }
+        return votes;
+    }
+
+    public void startElection(@NotNull Collection<UUID> inactiveLeaders, long endMillis) {
+        List<String> leaders = new ArrayList<>();
+        for (UUID uuid : inactiveLeaders) {
+            leaders.add(uuid.toString());
+        }
+        flags.put("election_leaders", leaders);
+        flags.put("election_votes", new ArrayList<String>());
+        flags.put("election_end", endMillis);
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
+    public void extendElection(long endMillis) {
+        flags.put("election_end", endMillis);
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
+    public void setElectionVote(@NotNull UUID voter, @NotNull UUID candidate) {
+        Map<UUID, UUID> votes = getElectionVotes();
+        votes.put(voter, candidate);
+        List<String> entries = new ArrayList<>();
+        for (Map.Entry<UUID, UUID> vote : votes.entrySet()) {
+            entries.add(vote.getKey() + ":" + vote.getValue());
+        }
+        flags.put("election_votes", entries);
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
+    public void clearElection() {
+        flags.put("election_end", 0);
+        flags.put("election_leaders", new ArrayList<String>());
+        flags.put("election_votes", new ArrayList<String>());
+        SimpleClans.getInstance().getStorageManager().updateClan(this);
+    }
+
     /**
      * Sets this clan's alliance HQ for a given alliance. Stored in the clan flags blob,
      * keyed per alliance id so NATO and SCO HQs never collide. The HQ persists

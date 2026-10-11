@@ -58,6 +58,8 @@ public class ClanDetailsFrame extends SCFrame {
 		addBank();
 		addFee();
 		addRank();
+		addTax();
+		addElection();
 		addVerify();
 		addResign();
 		addDisband();
@@ -113,6 +115,40 @@ public class ClanDetailsFrame extends SCFrame {
 						lang("gui.clandetails.chat.clan.toggle.lore", getViewer()),
 						lang("gui.clandetails.chat.ally.toggle.lore", getViewer())),
 				XMaterial.KNOWLEDGE_BOOK, 43);
+	}
+
+	private void addTax() {
+		if (!plugin.getTaxManager().isEnabled()) {
+			return;
+		}
+		List<String> lore = new ArrayList<>();
+		lore.add(clan.getTaxAmount() > 0
+				? lang("gui.clandetails.tax.amount", getViewer(), CurrencyFormat.format(clan.getTaxAmount()),
+				lang(clan.getTaxPeriod().getLangKey(), getViewer()))
+				: lang("gui.tax.clan.none", getViewer()));
+		if (cp != null && cp.getTaxOwed() > 0) {
+			lore.add(lang("gui.clandetails.tax.owed", getViewer(), CurrencyFormat.format(cp.getTaxOwed())));
+		}
+		lore.add(lang("gui.clandetails.tax.click", getViewer()));
+		SCComponent tax = new SCComponentImpl(lang("gui.clandetails.tax.title", getViewer()), lore,
+				XMaterial.GOLD_BLOCK, 46);
+		tax.setListener(ClickType.LEFT, () -> InventoryDrawer.open(new TaxFrame(this, getViewer())));
+		tax.setPermission(ClickType.LEFT, "simpleclans.member.tax");
+		add(tax);
+	}
+
+	private void addElection() {
+		if (!clan.isElectionActive()) {
+			return;
+		}
+		SCComponent election = new SCComponentImpl(lang("gui.clandetails.election.title", getViewer()),
+				Arrays.asList(lang("gui.clandetails.election.lore", getViewer(),
+								plugin.getElectionManager().timeLeft(clan)),
+						lang("gui.clandetails.election.click", getViewer())),
+				XMaterial.BELL, 52);
+		election.setListener(ClickType.LEFT, () -> InventoryDrawer.open(new ElectionFrame(this, getViewer())));
+		election.setPermission(ClickType.LEFT, "simpleclans.member.election");
+		add(election);
 	}
 
 	private void addRank() {

@@ -107,6 +107,10 @@ public class ClanBalanceUpdateEvent extends Event implements Cancellable {
         UPKEEP,
         MEMBER_FEE,
         /**
+         * When a member pays their clan tax bill
+         */
+        TAX,
+        /**
          * When a command such as /clan bank deposit causes the update
          */
         COMMAND,
