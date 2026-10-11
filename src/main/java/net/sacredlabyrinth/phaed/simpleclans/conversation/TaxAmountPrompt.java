@@ -35,9 +35,15 @@ public class TaxAmountPrompt extends StringPrompt {
         if (input == null) {
             return this;
         }
+        String text = input.trim();
+        // Reject commas: "2,50" could mean 2.5 or 250, and guessing wrong could set a tax
+        // 100x higher than intended.
+        if (text.contains(",")) {
+            return new MessagePromptImpl(RED + lang("tax.invalid.amount.digits", player), this);
+        }
         double amount;
         try {
-            amount = Double.parseDouble(input.trim().replace(",", ""));
+            amount = Double.parseDouble(text);
         } catch (NumberFormatException ex) {
             return new MessagePromptImpl(RED + lang("tax.invalid.amount", player), this);
         }

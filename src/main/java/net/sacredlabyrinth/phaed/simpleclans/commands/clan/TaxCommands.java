@@ -70,7 +70,7 @@ public class TaxCommands extends BaseCommand {
         if (!enabled(player)) {
             return;
         }
-        if (amount != null && amount <= 0) {
+        if (amount != null && (!Double.isFinite(amount) || amount <= 0)) {
             ChatBlock.sendMessageKey(player, "tax.invalid.amount");
             return;
         }
@@ -116,10 +116,11 @@ public class TaxCommands extends BaseCommand {
             return;
         }
         double max = settings.getDouble(TAX_MAX_AMOUNT);
-        if (amount < 0 || amount > max) {
+        if (!Double.isFinite(amount) || amount < 0 || amount > max) {
             ChatBlock.sendMessageKey(player, "tax.amount.out.of.range", CurrencyFormat.format(max));
             return;
         }
+        amount = Math.round(amount * 100) / 100.0; // whole cents
         plugin.getTaxManager().setTax(clan, player.getName(), amount);
         if (amount <= 0) {
             ChatBlock.sendMessageKey(player, "tax.disabled");

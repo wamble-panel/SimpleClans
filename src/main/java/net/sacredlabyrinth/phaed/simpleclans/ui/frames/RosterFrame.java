@@ -71,7 +71,9 @@ public class RosterFrame extends SCFrame {
 
 		// Members who can manage tax see what everyone owes.
 		SimpleClans plugin = SimpleClans.getInstance();
+		// Only for the viewer's own clan: another clan's debts are nobody else's business.
 		boolean showTax = !staff && plugin.getTaxManager().isEnabled()
+				&& subject.equals(plugin.getClanManager().getClanByPlayerUniqueId(getViewer().getUniqueId()))
 				&& plugin.getPermissionsManager().has(getViewer(), RankPermission.TAX_MANAGE, false);
 		int slot = 9;
 		for (int i = paginator.getMinIndex(); paginator.isValidIndex(i); i++) {

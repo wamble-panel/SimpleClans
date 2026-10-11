@@ -31,6 +31,7 @@ public final class ElectionManager {
     }
 
     private static final long HOUR_MILLIS = 60L * 60L * 1000L;
+    private static final int MAX_EXTENSIONS = 2;
 
     private final SimpleClans plugin;
 
@@ -113,8 +114,11 @@ public final class ElectionManager {
                     return;
                 }
             }
-            if (!hasActiveVoter(clan, inactiveDays)) {
-                clan.clearElection(); // everyone left or went inactive; don't extend forever
+            if (!hasActiveVoter(clan, inactiveDays) || clan.getElectionExtensions() >= MAX_EXTENSIONS) {
+                // Nobody left to vote, or still no votes after several rounds: give up rather
+                // than extending forever. A new election can start later if needed.
+                clan.clearElection();
+                clan.addBb(lang("election.bb.cancelled.novotes"), false);
                 return;
             }
             clan.extendElection(System.currentTimeMillis() + durationMillis());

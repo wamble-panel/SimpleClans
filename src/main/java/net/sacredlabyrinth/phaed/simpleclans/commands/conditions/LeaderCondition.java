@@ -25,6 +25,10 @@ public class LeaderCondition extends AbstractCommandCondition {
         if (!clan.isLeader(player)) {
             throw new ConditionFailedException(ChatColor.RED + lang("no.leader.permissions", player));
         }
+        // Leaders being replaced by an election keep the title but not the powers.
+        if (plugin.getElectionManager().isLockedLeader(clan, player.getUniqueId())) {
+            throw new ConditionFailedException(lang("election.locked.action", player));
+        }
     }
 
     @Override

@@ -808,21 +808,32 @@ public class ClanPlayer implements Serializable, Comparable<ClanPlayer> {
 
     /**
      * @return the clan tax this player still owes to their current clan. Debts are tied to
-     * the clan they were billed by, so they don't follow the player into another clan.
+     * the exact clan that billed them (tag + founding time), so they don't follow the player
+     * into another clan, nor into a new clan that later reuses the same tag.
      */
     @Placeholder("tax_owed")
     public double getTaxOwed() {
-        String clanTag = getTag();
-        if (clanTag == null || clanTag.isEmpty() || !clanTag.equals(flags.getString("tax_owed_clan", ""))) {
+        String key = getTaxDebtKey();
+        if (key == null || !key.equals(flags.getString("tax_owed_clan", ""))) {
             return 0;
         }
         return flags.getNumber("tax_owed").doubleValue();
     }
 
     public void setTaxOwed(double owed) {
-        flags.put("tax_owed", Math.max(0, owed));
-        flags.put("tax_owed_clan", getTag() != null ? getTag() : "");
-        SimpleClans.getInstance().getStorageManager().updateClanPlayer(this);
+        String key = getTaxDebtKey();
+        // Whole cents only, so partial payments can't leave a fraction-of-a-cent "debt".
+        double rounded = Math.round(Math.max(0, owed) * 100) / 100.0;
+        flags.put("tax_owed", rounded);
+        flags.put("tax_owed_clan", key != null ? key : "");
+        // Don't refresh "last seen": a bill must not make an inactive member look active.
+        SimpleClans.getInstance().getStorageManager().updateClanPlayer(this, false);
+    }
+
+    @Nullable
+    private String getTaxDebtKey() {
+        Clan clan = getClan();
+        return clan != null ? clan.getTag() + ":" + clan.getFounded() : null;
     }
 
     /**
@@ -834,7 +845,7 @@ public class ClanPlayer implements Serializable, Comparable<ClanPlayer> {
 
     public void setTaxAutoPay(boolean autoPay) {
         flags.put("tax_autopay", autoPay);
-        SimpleClans.getInstance().getStorageManager().updateClanPlayer(this);
+        SimpleClans.getInstance().getStorageManager().updateClanPlayer(this, false);
     }
 
     @Deprecated

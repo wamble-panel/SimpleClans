@@ -1712,7 +1712,7 @@ public class Clan implements Serializable, Comparable<Clan> {
 
     public void setTaxAmount(double amount) {
         flags.put("tax_amount", Math.max(0, amount));
-        SimpleClans.getInstance().getStorageManager().updateClan(this);
+        SimpleClans.getInstance().getStorageManager().updateClan(this, false);
     }
 
     @NotNull
@@ -1723,7 +1723,7 @@ public class Clan implements Serializable, Comparable<Clan> {
 
     public void setTaxPeriod(@NotNull TaxPeriod period) {
         flags.put("tax_period", period.name());
-        SimpleClans.getInstance().getStorageManager().updateClan(this);
+        SimpleClans.getInstance().getStorageManager().updateClan(this, false);
     }
 
     /**
@@ -1735,7 +1735,19 @@ public class Clan implements Serializable, Comparable<Clan> {
 
     public void setTaxNextDue(long epochMillis) {
         flags.put("tax_next_due", epochMillis);
-        SimpleClans.getInstance().getStorageManager().updateClan(this);
+        SimpleClans.getInstance().getStorageManager().updateClan(this, false);
+    }
+
+    /**
+     * @return the day of the month monthly tax bills fall on (0 = not set)
+     */
+    public int getTaxAnchorDay() {
+        return flags.getNumber("tax_anchor_day").intValue();
+    }
+
+    public void setTaxAnchorDay(int day) {
+        flags.put("tax_anchor_day", day);
+        SimpleClans.getInstance().getStorageManager().updateClan(this, false);
     }
 
     /**
@@ -1748,7 +1760,7 @@ public class Clan implements Serializable, Comparable<Clan> {
 
     public void setTaxExemptRanks(@NotNull List<String> ranks) {
         flags.put("tax_exempt_ranks", ranks);
-        SimpleClans.getInstance().getStorageManager().updateClan(this);
+        SimpleClans.getInstance().getStorageManager().updateClan(this, false);
     }
 
     public boolean isTaxExemptTrusted() {
@@ -1757,7 +1769,7 @@ public class Clan implements Serializable, Comparable<Clan> {
 
     public void setTaxExemptTrusted(boolean exempt) {
         flags.put("tax_exempt_trusted", exempt);
-        SimpleClans.getInstance().getStorageManager().updateClan(this);
+        SimpleClans.getInstance().getStorageManager().updateClan(this, false);
     }
 
     /**
@@ -1827,12 +1839,21 @@ public class Clan implements Serializable, Comparable<Clan> {
         flags.put("election_leaders", leaders);
         flags.put("election_votes", new ArrayList<String>());
         flags.put("election_end", endMillis);
-        SimpleClans.getInstance().getStorageManager().updateClan(this);
+        flags.put("election_extensions", 0);
+        SimpleClans.getInstance().getStorageManager().updateClan(this, false);
+    }
+
+    /**
+     * @return how many times the running election was extended because nobody voted
+     */
+    public int getElectionExtensions() {
+        return flags.getNumber("election_extensions").intValue();
     }
 
     public void extendElection(long endMillis) {
         flags.put("election_end", endMillis);
-        SimpleClans.getInstance().getStorageManager().updateClan(this);
+        flags.put("election_extensions", getElectionExtensions() + 1);
+        SimpleClans.getInstance().getStorageManager().updateClan(this, false);
     }
 
     public void setElectionVote(@NotNull UUID voter, @NotNull UUID candidate) {
@@ -1843,14 +1864,14 @@ public class Clan implements Serializable, Comparable<Clan> {
             entries.add(vote.getKey() + ":" + vote.getValue());
         }
         flags.put("election_votes", entries);
-        SimpleClans.getInstance().getStorageManager().updateClan(this);
+        SimpleClans.getInstance().getStorageManager().updateClan(this, false);
     }
 
     public void clearElection() {
         flags.put("election_end", 0);
         flags.put("election_leaders", new ArrayList<String>());
         flags.put("election_votes", new ArrayList<String>());
-        SimpleClans.getInstance().getStorageManager().updateClan(this);
+        SimpleClans.getInstance().getStorageManager().updateClan(this, false);
     }
 
     /**

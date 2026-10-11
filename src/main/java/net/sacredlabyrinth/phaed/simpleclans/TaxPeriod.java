@@ -18,8 +18,31 @@ public enum TaxPeriod {
      * @return the moment one period after {@code fromMillis} (calendar-aware for months)
      */
     public long next(long fromMillis) {
+        return next(fromMillis, 0);
+    }
+
+    /**
+     * @param anchorDay for monthly bills, the day of the month they fall on (0 = keep the
+     *                  day of {@code fromMillis}). Without it, a bill on the 31st would drift to
+     *                  the 28th after February and stay there.
+     */
+    public long next(long fromMillis, int anchorDay) {
         ZonedDateTime from = Instant.ofEpochMilli(fromMillis).atZone(ZoneId.systemDefault());
-        return (this == WEEKLY ? from.plusWeeks(1) : from.plusMonths(1)).toInstant().toEpochMilli();
+        if (this == WEEKLY) {
+            return from.plusWeeks(1).toInstant().toEpochMilli();
+        }
+        ZonedDateTime next = from.plusMonths(1);
+        if (anchorDay > 0) {
+            next = next.withDayOfMonth(Math.min(anchorDay, next.toLocalDate().lengthOfMonth()));
+        }
+        return next.toInstant().toEpochMilli();
+    }
+
+    /**
+     * @return the day of the month of the given moment, used as a monthly anchor
+     */
+    public static int dayOfMonth(long epochMillis) {
+        return Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).getDayOfMonth();
     }
 
     /**

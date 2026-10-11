@@ -868,7 +868,19 @@ public final class StorageManager {
      *
      */
     public void updateClanPlayer(ClanPlayer cp) {
-        cp.updateLastSeen();
+        updateClanPlayer(cp, true);
+    }
+
+    /**
+     * Update a clan player to the database
+     *
+     * @param updateLastSeen false for background changes (e.g. a tax bill) that must not make
+     *                       an inactive player look active
+     */
+    public void updateClanPlayer(ClanPlayer cp, boolean updateLastSeen) {
+        if (updateLastSeen) {
+            cp.updateLastSeen();
+        }
         plugin.getProxyManager().sendUpdate(cp);
         if (plugin.getSettingsManager().is(PERFORMANCE_SAVE_PERIODICALLY)) {
             modifiedClanPlayers.add(cp);

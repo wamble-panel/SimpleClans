@@ -389,6 +389,12 @@ public class ClanCommands extends BaseCommand {
     @Description("{@@command.description.resign}")
     @HelpSearchTags("leave")
     public void resign(@Conditions("clan_member") Player player) {
+        Clan clan = cm.getClanByPlayerUniqueId(player.getUniqueId());
+        // A replaced leader resigning as the last leader would disband the clan.
+        if (plugin.getElectionManager().isLockedLeader(clan, player.getUniqueId())) {
+            ChatBlock.sendMessageKey(player, "election.locked.action");
+            return;
+        }
         new SCConversation(plugin, player, new ResignPrompt()).begin();
     }
 }

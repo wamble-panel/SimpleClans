@@ -352,6 +352,12 @@ public final class PermissionsManager {
         if (clanPlayer == null) {
             return false;
         }
+        if (isFrozenByElection(clanPlayer)) {
+            if (notify) {
+                ChatBlock.sendMessageKey(player, "election.locked.action");
+            }
+            return false;
+        }
 
         boolean hasBukkitPermission = has(player, permission.getBukkitPermission());
         if (!hasBukkitPermission) {
@@ -398,6 +404,12 @@ public final class PermissionsManager {
             }
             return false;
         }
+        if (isFrozenByElection(clanPlayer)) {
+            if (notify) {
+                ChatBlock.sendMessageKey(player, "election.locked.action");
+            }
+            return false;
+        }
 
         boolean hasBukkitPermission = has(player, permission.getBukkitPermission());
         if (!hasBukkitPermission) {
@@ -426,6 +438,15 @@ public final class PermissionsManager {
         }
 
         return hasLevel || hasRankPermission;
+    }
+
+    /**
+     * While members elect a new leader, the leaders being replaced keep their title but have
+     * no clan powers, so a returning leader can't kick voters, hand out ranks, etc.
+     */
+    private boolean isFrozenByElection(@NotNull ClanPlayer cp) {
+        ElectionManager elections = plugin.getElectionManager();
+        return elections != null && elections.isLockedLeader(cp.getClan(), cp.getUniqueId());
     }
 
     private boolean hasLevel(@NotNull ClanPlayer cp, @Nullable PermissionLevel level) {

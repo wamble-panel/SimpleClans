@@ -22,6 +22,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.logging.Level;
 
 import static net.sacredlabyrinth.phaed.simpleclans.SimpleClans.lang;
 import static net.sacredlabyrinth.phaed.simpleclans.managers.SettingsManager.ConfigField.*;
@@ -34,10 +35,11 @@ import static net.sacredlabyrinth.phaed.simpleclans.managers.SettingsManager.Con
 public final class TaxManager {
 
     /**
-     * Bills missed while the server was offline are caught up, but never more than this
-     * many at once, so a long downtime can't produce a huge surprise bill.
+     * After downtime (or an economy outage, or tax being switched off and on) at most this
+     * many missed bills are issued, so nobody gets a surprise multi-period bill.
      */
-    private static final int MAX_CATCH_UP_PERIODS = 4;
+    private static final int MAX_CATCH_UP_PERIODS = 1;
+    private static final double MIN_PAYMENT = 0.01;
 
     public enum Status {
         SUCCESS, NOTHING_OWED, NO_ECONOMY, NOT_ENOUGH_MONEY, FAILED
@@ -84,30 +86,45 @@ public final class TaxManager {
         }
         long now = System.currentTimeMillis();
         for (Clan clan : plugin.getClanManager().getClans()) {
-            double amount = clan.getTaxAmount();
-            if (amount <= 0) {
-                continue;
+            try {
+                billIfDue(clan, now);
+            } catch (RuntimeException ex) {
+                plugin.getLogger().log(Level.SEVERE, "Error billing tax for clan " + clan.getTag(), ex);
             }
-            TaxPeriod period = clan.getTaxPeriod();
-            long due = clan.getTaxNextDue();
-            if (due <= 0) {
-                clan.setTaxNextDue(period.next(now));
-                continue;
-            }
-            int periods = 0;
-            while (due <= now && periods < MAX_CATCH_UP_PERIODS) {
-                periods++;
-                due = period.next(due);
-            }
-            if (periods == 0) {
-                continue;
-            }
-            if (due <= now) {
-                due = period.next(now); // far behind (long downtime): resync to now
-            }
-            clan.setTaxNextDue(due);
-            bill(clan, amount * periods);
         }
+    }
+
+    private void billIfDue(@NotNull Clan clan, long now) {
+        double amount = clan.getTaxAmount();
+        if (amount <= 0) {
+            return;
+        }
+        TaxPeriod period = clan.getTaxPeriod();
+        long due = clan.getTaxNextDue();
+        if (due <= 0) {
+            schedule(clan, period, now);
+            return;
+        }
+        int periods = 0;
+        while (due <= now && periods < MAX_CATCH_UP_PERIODS) {
+            periods++;
+            due = period.next(due, clan.getTaxAnchorDay());
+        }
+        if (periods == 0) {
+            return;
+        }
+        if (due <= now) {
+            due = period.next(now, clan.getTaxAnchorDay()); // far behind (downtime): resync
+        }
+        // Saved before billing so a crash mid-way can never bill the same period twice.
+        clan.setTaxNextDue(due);
+        bill(clan, amount * periods);
+    }
+
+    private void schedule(@NotNull Clan clan, @NotNull TaxPeriod period, long fromMillis) {
+        long due = period.next(fromMillis);
+        clan.setTaxAnchorDay(TaxPeriod.dayOfMonth(due));
+        clan.setTaxNextDue(due);
     }
 
     private void bill(@NotNull Clan clan, double amount) {
@@ -116,23 +133,31 @@ public final class TaxManager {
             if (clan.isTaxExempt(cp)) {
                 continue;
             }
-            cp.setTaxOwed(cp.getTaxOwed() + amount);
-            Player player = cp.toPlayer();
-            if (cp.isTaxAutoPay()) {
-                Payment payment = pay(cp, null);
-                if (payment.getStatus() == Status.SUCCESS) {
-                    if (player != null) {
-                        ChatBlock.sendMessageKey(player, "tax.autopaid", CurrencyFormat.format(payment.getAmount()));
-                    }
-                    continue;
-                }
-            }
-            if (player != null) {
-                ChatBlock.sendMessageKey(player, "tax.billed", CurrencyFormat.format(amount),
-                        CurrencyFormat.format(cp.getTaxOwed()), command);
+            try {
+                billMember(cp, amount, command);
+            } catch (RuntimeException ex) {
+                plugin.getLogger().log(Level.SEVERE, "Error billing tax to " + cp.getName(), ex);
             }
         }
         clan.addBb(lang("tax.bb.billed", CurrencyFormat.format(amount)), false);
+    }
+
+    private void billMember(@NotNull ClanPlayer cp, double amount, @NotNull String command) {
+        cp.setTaxOwed(cp.getTaxOwed() + amount);
+        Player player = cp.toPlayer();
+        if (cp.isTaxAutoPay()) {
+            Payment payment = pay(cp, null);
+            if (payment.getStatus() == Status.SUCCESS) {
+                if (player != null) {
+                    ChatBlock.sendMessageKey(player, "tax.autopaid", CurrencyFormat.format(payment.getAmount()));
+                }
+                return;
+            }
+        }
+        if (player != null) {
+            ChatBlock.sendMessageKey(player, "tax.billed", CurrencyFormat.format(amount),
+                    CurrencyFormat.format(cp.getTaxOwed()), command);
+        }
     }
 
     /**
@@ -151,8 +176,12 @@ public final class TaxManager {
         if (!pm.hasEconomy()) {
             return new Payment(Status.NO_ECONOMY, 0);
         }
+        if (requested != null && (!Double.isFinite(requested) || requested < MIN_PAYMENT)) {
+            return new Payment(Status.FAILED, 0);
+        }
         double amount = requested == null ? owed : Math.min(requested, owed);
-        if (amount <= 0) {
+        amount = Math.round(amount * 100) / 100.0;
+        if (amount < MIN_PAYMENT) {
             return new Payment(Status.NOTHING_OWED, 0);
         }
         OfflinePlayer player = Bukkit.getOfflinePlayer(cp.getUniqueId());
@@ -165,7 +194,11 @@ public final class TaxManager {
         EconomyResponse response = clan.deposit(new BankOperator(cp, pm.playerGetMoney(player)),
                 ClanBalanceUpdateEvent.Cause.TAX, amount);
         if (response != EconomyResponse.SUCCESS) {
-            pm.grantPlayer(player, amount); // the bank refused it; give the money back
+            // The bank refused it; give the money back.
+            if (!pm.grantPlayer(player, amount)) {
+                plugin.getLogger().severe(String.format("Could not refund %s of clan tax to %s",
+                        CurrencyFormat.format(amount), cp.getName()));
+            }
             return new Payment(Status.FAILED, amount);
         }
         cp.setTaxOwed(owed - amount);
@@ -176,7 +209,9 @@ public final class TaxManager {
      * Login reminder (and auto-pay) for players with an outstanding bill.
      */
     public void onJoin(@NotNull Player player, @NotNull ClanPlayer cp) {
-        if (!isEnabled() || cp.getClan() == null || cp.getTaxOwed() <= 0) {
+        Clan clan = cp.getClan();
+        // Leaders and exempt members are never chased for tax (e.g. old debt from before a promotion).
+        if (!isEnabled() || clan == null || cp.getTaxOwed() <= 0 || clan.isTaxExempt(cp)) {
             return;
         }
         if (cp.isTaxAutoPay()) {
@@ -202,16 +237,19 @@ public final class TaxManager {
             return;
         }
         if (wasOff || clan.getTaxNextDue() <= 0) {
-            clan.setTaxNextDue(clan.getTaxPeriod().next(System.currentTimeMillis()));
+            schedule(clan, clan.getTaxPeriod(), System.currentTimeMillis());
         }
         announce(clan, setBy, lang("tax.bb.set", setBy, CurrencyFormat.format(amount),
                 lang(clan.getTaxPeriod().getLangKey()), formatDate(clan.getTaxNextDue())));
     }
 
     public void setPeriod(@NotNull Clan clan, @NotNull String setBy, @NotNull TaxPeriod period) {
+        if (clan.getTaxPeriod() == period) {
+            return; // unchanged: don't push back the pending bill
+        }
         clan.setTaxPeriod(period);
         if (clan.getTaxAmount() > 0) {
-            clan.setTaxNextDue(period.next(System.currentTimeMillis()));
+            schedule(clan, period, System.currentTimeMillis());
             announce(clan, setBy, lang("tax.bb.period", setBy, lang(period.getLangKey()),
                     formatDate(clan.getTaxNextDue())));
         }
@@ -224,7 +262,7 @@ public final class TaxManager {
     public List<ClanPlayer> getDebtors(@NotNull Clan clan) {
         List<ClanPlayer> debtors = new ArrayList<>();
         for (ClanPlayer cp : clan.getMembers()) {
-            if (cp.getTaxOwed() > 0) {
+            if (cp.getTaxOwed() > 0 && !clan.isTaxExempt(cp)) {
                 debtors.add(cp);
             }
         }
@@ -234,7 +272,7 @@ public final class TaxManager {
 
     public double getTotalOwed(@NotNull Clan clan) {
         double total = 0;
-        for (ClanPlayer cp : clan.getMembers()) {
+        for (ClanPlayer cp : getDebtors(clan)) {
             total += cp.getTaxOwed();
         }
         return total;

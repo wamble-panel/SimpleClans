@@ -2,6 +2,7 @@ package net.sacredlabyrinth.phaed.simpleclans.conversation;
 
 import net.sacredlabyrinth.phaed.simpleclans.Clan;
 import net.sacredlabyrinth.phaed.simpleclans.ClanPlayer;
+import net.sacredlabyrinth.phaed.simpleclans.SimpleClans;
 import org.bukkit.conversations.Prompt;
 
 import static net.sacredlabyrinth.phaed.simpleclans.SimpleClans.lang;
@@ -21,6 +22,8 @@ public class ResignPrompt extends ConfirmationPrompt {
             clan.removePlayerFromClan(sender.getUniqueId());
 
             return new MessagePromptImpl(AQUA + lang("resign.success", sender));
+        } else if (SimpleClans.getInstance().getElectionManager().isLockedLeader(clan, sender.getUniqueId())) {
+            return new MessagePromptImpl(RED + lang("election.locked.action", sender));
         } else if (sender.isLeader() && clan.getLeaders().size() == 1) {
             clan.disband(sender.toPlayer(), true, false);
             return new MessagePromptImpl(RED + lang("clan.has.been.disbanded", sender, clan.getName()));
