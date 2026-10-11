@@ -14,6 +14,7 @@ import net.sacredlabyrinth.phaed.simpleclans.managers.*;
 import net.sacredlabyrinth.phaed.simpleclans.migrations.BbMigration;
 import net.sacredlabyrinth.phaed.simpleclans.migrations.ChatFormatMigration;
 import net.sacredlabyrinth.phaed.simpleclans.migrations.LanguageMigration;
+import net.sacredlabyrinth.phaed.simpleclans.migrations.PaletteMigration;
 import net.sacredlabyrinth.phaed.simpleclans.proxy.BungeeManager;
 import net.sacredlabyrinth.phaed.simpleclans.proxy.ProxyManager;
 import net.sacredlabyrinth.phaed.simpleclans.tasks.*;
@@ -112,6 +113,7 @@ public class SimpleClans extends JavaPlugin {
         settingsManager = new SettingsManager(this);
         new BbMigration(settingsManager);
         new ChatFormatMigration(settingsManager);
+        new PaletteMigration(settingsManager);
         languageResource = new LanguageResource();
         this.hasUUID = UUIDMigration.canReturnUUID();
 
