@@ -11,6 +11,7 @@ import net.sacredlabyrinth.phaed.simpleclans.ui.SCComponent;
 import net.sacredlabyrinth.phaed.simpleclans.ui.SCComponentImpl;
 import net.sacredlabyrinth.phaed.simpleclans.ui.SCFrame;
 import net.sacredlabyrinth.phaed.simpleclans.utils.KDRFormat;
+import net.sacredlabyrinth.phaed.simpleclans.utils.ChatUtils;
 import net.sacredlabyrinth.phaed.simpleclans.utils.Paginator;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -30,6 +31,9 @@ import static net.sacredlabyrinth.phaed.simpleclans.SimpleClans.lang;
  * and KDR. Left-clicking a clan opens its ClanDetailsFrame.
  */
 public class AllianceMembersFrame extends SCFrame {
+
+    private static final String HIGHLIGHT = "&#FFC8DD";
+    private static final String MUTED = "&#8A8A8A";
 
     private final AllianceType type;
     private final List<String> memberTags;
@@ -86,15 +90,15 @@ public class AllianceMembersFrame extends SCFrame {
             List<String> lore;
 
             if (clan != null) {
-                displayName = type.getColoredSymbol() + " " + clan.getColorTag()
-                        + ChatColor.WHITE + " " + clan.getName();
+                displayName = type.getColoredSymbol() + " " + clan.getColorTag() + " "
+                        + ChatUtils.parseColors(HIGHLIGHT) + clan.getName();
                 icon = clan.getBanner() != null ? clan.getBanner() : XMaterial.WHITE_BANNER.parseItem();
                 lore = Arrays.asList(
                         lang("gui.clanlist.clan.lore.members", getViewer(), clan.getMembers().size()),
                         lang("gui.clanlist.clan.lore.kdr", getViewer(), KDRFormat.format(clan.getTotalKDR()))
                 );
             } else {
-                displayName = ChatColor.GRAY.toString() + tag;
+                displayName = ChatUtils.parseColors(MUTED) + tag;
                 icon = XMaterial.WHITE_BANNER.parseItem();
                 lore = Collections.emptyList();
             }

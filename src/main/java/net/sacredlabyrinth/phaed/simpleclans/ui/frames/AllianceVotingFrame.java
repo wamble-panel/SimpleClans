@@ -57,9 +57,8 @@ public class AllianceVotingFrame extends SCFrame {
 
     @Override
     public String getTitle() {
-        return ChatColor.translateAlternateColorCodes('&',
-                type.getColorCode() + type.getPlainSymbol() + " " + lang("alliance.gui.vote.title", getViewer(),
-                        type.getDisplayName()));
+        // parseColors (not translateAlternateColorCodes) so hex alliance colours work too.
+        return type.getColoredSymbol() + " " + lang("alliance.gui.vote.title", getViewer(), type.getDisplayName());
     }
 
     @Override
@@ -106,7 +105,8 @@ public class AllianceVotingFrame extends SCFrame {
                     String.valueOf(proposal.getAgreeCount()), String.valueOf(proposal.getDisagreeCount())));
 
             SCComponent label = new SCComponentImpl.Builder(XMaterial.PAPER)
-                    .withDisplayName(ChatColor.AQUA + "#" + proposal.getId() + " " + ChatColor.WHITE + proposal.describe())
+                    .withDisplayName(lang("alliance.gui.vote.proposal", getViewer(),
+                            String.valueOf(proposal.getId()), proposal.describe()))
                     .withLore(lore)
                     .withSlot(base)
                     .build();

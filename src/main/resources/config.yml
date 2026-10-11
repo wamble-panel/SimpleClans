@@ -24,8 +24,8 @@ alliance:
     symbols:
         nato: '★'
         sco: '✪'
-        nato-color: '&9'
-        sco-color: '&c'
+        nato-color: '&#A2D2FF'
+        sco-color: '&#FF9AA2'
         show-on-nameplate: true
         show-on-death-message: true
     custom-proposal:
@@ -35,20 +35,21 @@ alliance:
         log-enabled: false
         log-retention-days: 7
         format:
-            nato: '&9★ [NATO] &7{clan} &f{player}: {message}'
-            sco: '&c✪ [SCO] &7{clan} &f{player}: {message}'
+            nato: '&#A2D2FF★ ɴᴀᴛᴏ &#8A8A8A» &#C3B1E1{clan} &#FFC8DD{player}&#8A8A8A: &#FFD8BE{message}'
+            sco: '&#FF9AA2✪ ꜱᴄᴏ &#8A8A8A» &#C3B1E1{clan} &#FFC8DD{player}&#8A8A8A: &#FFD8BE{message}'
 tag:
-    default-color: '8'
+    # Colours accept a legacy code ('8') or hex ('&#C3B1E1').
+    default-color: '&#C3B1E1'
     max-length: 5
     min-length: 2
     bracket:
-        color: '8'
-        leader-color: '4'
+        color: '&#8A8A8A'
+        leader-color: '&#FFD6A5'
         left: ''
         right: ''
     separator:
-        color: '8'
-        leader-color: '4'
+        color: '&#8A8A8A'
+        leader-color: '&#FFD6A5'
         char: ' .'
 settings:
     enable-gui: true
@@ -246,48 +247,48 @@ tasks:
         hour: 1
         minute: 0
 page:
-    untrusted-color: '8'
-    clan-name-color: b
-    subtitle-color: '7'
-    headings-color: '8'
-    trusted-color: f
-    leader-color: '4'
+    untrusted-color: '&#E2E2E2'
+    clan-name-color: '&#C3B1E1'
+    subtitle-color: '&#FFD8BE'
+    headings-color: '&#F2F2F2'
+    trusted-color: '&#A2D2FF'
+    leader-color: '&#FFD6A5'
     separator: '-'
     size: 100
     help-size: 10
 clanchat:
     enable: true
     tag-based-clan-chat: false
-    announcement-color: e
-    format: "&b[%clan%&b] &4<%nick-color%%player%&4> %rank%: &b%message%"
-    spy-format: "&8[Spy] [&bC&8] <%clean-tag%&8> <%nick-color%*&8%player%>&8 %rank%&8: %message%"
-    rank: "&f[%rank%&f]"
-    leader-color: '4'
-    trusted-color: 'f'
-    member-color: '7'
+    announcement-color: '&#FFD8BE'
+    format: "&#C3B1E1⚑ %clan% &#8A8A8A» %nick-color%%player% %rank%&#8A8A8A: &#FFD8BE%message%"
+    spy-format: "&#8A8A8A[ꜱᴘʏ ⚑] %clean-tag% » %nick-color%%player% &#8A8A8A%rank%: %message%"
+    rank: "&#8A8A8A[&#F2F2F2%rank%&#8A8A8A]"
+    leader-color: '&#FFD6A5'
+    trusted-color: '&#A2D2FF'
+    member-color: '&#B5EAD7'
     listener-priority: LOW
 request:
     ask-frequency-secs: 60
     max-asks-per-request: 1440
 bb:
-    prefix: "&8* &e"
+    prefix: "&#8A8A8A• &#FFD8BE"
     show-on-login: true
     size: 6
     login-size: 6
 allychat:
     enable: true
-    format: "&b[Ally Chat] &4<%clan%&4> <%nick-color%%player%&4> %rank%: &b%message%"
-    spy-format: "&8[Spy] [&cA&8] <%clean-tag%&8> <%nick-color%*&8%player%>&8 %rank%&8: %message%"
-    rank: "&f[%rank%&f]"
-    leader-color: '4'
-    trusted-color: 'f'
-    member-color: '7'
+    format: "&#B5EAD7❤ ᴀʟʟʏ &#8A8A8A» &#C3B1E1%clan% %nick-color%%player% %rank%&#8A8A8A: &#FFD8BE%message%"
+    spy-format: "&#8A8A8A[ꜱᴘʏ ❤] %clean-tag% » %nick-color%%player% &#8A8A8A%rank%: %message%"
+    rank: "&#8A8A8A[&#F2F2F2%rank%&#8A8A8A]"
+    leader-color: '&#FFD6A5'
+    trusted-color: '&#A2D2FF'
+    member-color: '&#B5EAD7'
 discordchat:
     enable: false
     auto-creation: true
     discord-format: "%player% » %message%"
-    format: "&b[&9D&b] &b[%clan%&b] &4<%nick-color%%player%&4> %rank%: &b%message%"
-    spy-format: "&8[Spy] [&9D&8] <%clean-tag%&8> <%nick-color%*&8%player%>&8 %rank%&8: %message%"
+    format: "&#A2D2FF[ᴅ] &#C3B1E1⚑ %clan% &#8A8A8A» %nick-color%%player% %rank%&#8A8A8A: &#FFD8BE%message%"
+    spy-format: "&#8A8A8A[ꜱᴘʏ ᴅ] %clean-tag% » %nick-color%%player% &#8A8A8A%rank%: %message%"
     rank: "[%rank%]"
     leader-role: "Leader"
     leader-color: 231, 76, 60, 100
